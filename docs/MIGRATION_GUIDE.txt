@@ -1,0 +1,69 @@
+═══════════════════════════════════════════════════════════════
+  TYPESCRIPT MIGRATION SYSTEM - QUICK REFERENCE
+═══════════════════════════════════════════════════════════════
+
+📋 MIGRATION COMMANDS
+────────────────────────────────────────────────────────────────
+  npm run migrate:status    Check migration status
+  npm run migrate:up        Apply pending migrations
+  npm run migrate:down      Rollback last migration
+
+📊 DATABASE CONFIGURATION
+────────────────────────────────────────────────────────────────
+File: .env
+
+  DB_HOST="localhost"
+  DB_PORT="3306"
+  DB_USER="root"
+  DB_PASSWORD="your_password"
+  DB_NAME="perpustakaan_db"
+
+DATABASE_URL otomatis di-generate dari variabel di atas.
+
+🔧 DEVELOPMENT WORKFLOW
+────────────────────────────────────────────────────────────────
+1. Update prisma/schema.prisma
+2. npx prisma db push
+3. npx prisma generate
+4. Create migration file: migrations/typescript/00X_name.ts
+5. npm run migrate:up
+6. Test & commit
+
+📂 MIGRATION FILE STRUCTURE
+────────────────────────────────────────────────────────────────
+migrations/
+└── typescript/
+    └── 001_init.ts
+
+Template:
+─────────
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export async function up() {
+  // Migration logic
+}
+
+export async function down() {
+  // Rollback logic
+}
+
+🚀 DEPLOYMENT (Production)
+────────────────────────────────────────────────────────────────
+1. Git pull
+2. npm install
+3. npx prisma generate
+4. npx prisma db push
+5. npm run migrate:up
+6. npm run db:seed (if needed)
+7. npm run build
+8. npm run start
+
+📖 FULL DOCUMENTATION
+────────────────────────────────────────────────────────────────
+See: docs/MIGRATION.md
+
+════════════════════════════════════════════════════════════════
+© 2026 E-Perpustakaan - TypeScript Migration System v1.0.0
+════════════════════════════════════════════════════════════════

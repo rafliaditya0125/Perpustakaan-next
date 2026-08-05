@@ -272,19 +272,36 @@ npx prisma studio
 ```
 Buka `http://localhost:5555` untuk GUI management database.
 
-### Create New Migration
+### TypeScript Migrations
+
+Proyek ini menggunakan **TypeScript migrations** untuk type-safe database management:
+
 ```bash
-npx prisma migrate dev --name nama_migration
+# Check migration status
+npm run migrate:status
+
+# Apply pending migrations
+npm run migrate:up
+
+# Rollback last migration
+npm run migrate:down
 ```
 
-### Reset Database (⚠️ Hati-hati: Menghapus semua data!)
+📖 **Lihat [MIGRATION.md](./MIGRATION.md)** untuk panduan lengkap TypeScript migration system.
+
+### Schema Management
+
 ```bash
-npx prisma migrate reset
+# Push schema to database (development)
+npm run db:push
+
+# Generate Prisma Client
+npx prisma generate
 ```
 
 ### Re-seed Database
 ```bash
-npm run seed
+npm run db:seed
 ```
 
 ---

@@ -21,9 +21,22 @@ Selamat datang di dokumentasi lengkap aplikasi E-Perpustakaan. Folder ini berisi
    - Development tips
    - Production deployment checklist
 
+3. **[DATABASE_CONFIG.md](DATABASE_CONFIG.md)** - Konfigurasi Database ⭐ BARU!
+   - Environment variables terpisah (DB_HOST, DB_PORT, dll.)
+   - TypeScript migration & seed
+   - Test koneksi database
+   - Remote database setup
+   - Password dengan karakter khusus
+
+4. **[MIGRATION.md](MIGRATION.md)** - TypeScript Migration System ⭐ BARU!
+   - Migration berbasis TypeScript (bukan SQL)
+   - Migration tracking & rollback
+   - Best practices & examples
+   - Production deployment guide
+
 ### 📋 Spesifikasi Bisnis
 
-3. **[BRD_Perpustakaan_Rafli.md](BRD_Perpustakaan_Rafli.md)** - Business Requirements Document
+5. **[BRD_Perpustakaan_Rafli.md](BRD_Perpustakaan_Rafli.md)** - Business Requirements Document
    - Kebijakan bisnis perpustakaan
    - Kebutuhan fungsional lengkap
    - Kebutuhan non-fungsional
@@ -51,7 +64,13 @@ Selamat datang di dokumentasi lengkap aplikasi E-Perpustakaan. Folder ini berisi
 
 ### 🛠️ Development & Maintenance
 
-7. **[implementation_plan.md](implementation_plan.md)** - Rencana & Status Implementasi
+7. **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Troubleshooting Guide
+   - Common errors dan solusinya
+   - Database connection issues
+   - Prisma Client errors
+   - Migration problems
+
+8. **[implementation_plan.md](implementation_plan.md)** - Rencana & Status Implementasi
    - Tech stack dan arsitektur
    - Roadmap implementasi
    - Status fitur (100% complete!)
@@ -82,6 +101,9 @@ docs/
 ├── README.md                                    # File ini (index dokumentasi)
 ├── QUICKSTART.md                                # Quick start 5 menit
 ├── SETUP.md                                     # Setup lengkap + troubleshooting
+├── DATABASE_CONFIG.md                           # Konfigurasi database ⭐
+├── MIGRATION.md                                 # TypeScript migration system ⭐
+├── TROUBLESHOOTING.md                           # Troubleshooting guide
 ├── CHANGELOG.md                                 # Changelog fitur
 ├── CONTRIBUTING.md                              # Panduan kontribusi
 ├── implementation_plan.md                       # Rencana implementasi
@@ -118,8 +140,10 @@ docs/
 
 ### Untuk Database Administrator
 1. Baca **[Desain_Database_Perpustakaan_Rafli.md](Desain_Database_Perpustakaan_Rafli.md)** untuk ERD dan kamus data
-2. Cek file `prisma/schema.prisma` di root project untuk schema aktual
-3. Review **[SETUP.md](SETUP.md)** untuk database management commands
+2. Cek **[DATABASE_CONFIG.md](DATABASE_CONFIG.md)** untuk konfigurasi database
+3. Review **[MIGRATION.md](MIGRATION.md)** untuk TypeScript migration system
+4. Cek file `prisma/schema.prisma` di root project untuk schema aktual
+5. Review **[SETUP.md](SETUP.md)** untuk database management commands
 
 ---
 
@@ -138,6 +162,9 @@ docs/
 |---------|--------|-------------|
 | QUICKSTART.md | ✅ Complete | 2026-08-05 |
 | SETUP.md | ✅ Complete | 2026-08-05 |
+| DATABASE_CONFIG.md | ✅ Complete | 2026-08-05 |
+| MIGRATION.md | ✅ Complete | 2026-08-05 |
+| TROUBLESHOOTING.md | ✅ Complete | 2026-08-05 |
 | CHANGELOG.md | ✅ Complete | 2026-08-05 |
 | CONTRIBUTING.md | ✅ Complete | 2026-08-05 |
 | implementation_plan.md | ✅ Complete | 2026-08-05 |

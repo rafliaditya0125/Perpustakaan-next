@@ -4,6 +4,62 @@ Semua perubahan penting pada project ini akan didokumentasikan di file ini.
 
 ---
 
+## [1.1.0] - 2026-08-05
+
+### ✨ New Features
+
+#### 🔄 TypeScript Migration System
+- ✅ Custom TypeScript migration runner (`scripts/migrate.ts`)
+- ✅ Migration tracking dengan tabel `_migrations`
+- ✅ Migration file berbasis TypeScript (bukan SQL)
+- ✅ Migration commands:
+  - `npm run migrate:status` - Check migration status
+  - `npm run migrate:up` - Apply pending migrations
+  - `npm run migrate:down` - Rollback last migration
+- ✅ Initial migration `001_init.ts` with Prisma Client API
+- ✅ Rollback support untuk safe rollback
+
+#### 🗄️ Enhanced Database Configuration
+- ✅ Separate database configuration variables:
+  - `DB_HOST` - Database host
+  - `DB_PORT` - Database port
+  - `DB_USER` - Database username
+  - `DB_PASSWORD` - Database password
+  - `DB_NAME` - Database name
+- ✅ Auto-generate `DATABASE_URL` dari variabel terpisah
+- ✅ Password URL encoding untuk special characters
+- ✅ Helper functions di `prisma/env-helper.ts`:
+  - `getDatabaseUrl()` - Generate DATABASE_URL
+  - `printDatabaseConfig()` - Print config with masked password
+- ✅ Database connection tester (`scripts/test-db.ts`)
+
+#### 📚 Documentation Updates
+- ✅ New `docs/MIGRATION.md` - Comprehensive migration guide
+  - Migration system overview
+  - Creating new migrations
+  - Best practices & examples
+  - Production deployment guide
+  - Troubleshooting migration issues
+- ✅ Enhanced `docs/DATABASE_CONFIG.md`:
+  - Separate variable configuration
+  - Migration system reference
+  - TypeScript seed documentation
+- ✅ Updated `docs/SETUP.md` with migration commands
+- ✅ Updated `docs/README.md` with new documentation links
+
+### 🗑️ Removed
+- ❌ Deleted `prisma/migrations/` folder (SQL migrations)
+- ❌ Deleted `perpustakaan-app/` unused folder
+- ❌ Removed dependency on Prisma SQL migrations
+
+### 🔧 Technical Changes
+- ✅ Converted seed script to TypeScript (`prisma/seed.ts`)
+- ✅ Installed `tsx` for running TypeScript files
+- ✅ Migration runner supports up/down/status commands
+- ✅ Prisma v5.22.0 (downgraded from v7 for compatibility)
+
+---
+
 ## [1.0.0] - 2026-08-05
 
 ### ✅ Implemented (Completed)

@@ -1,14 +1,18 @@
-const { PrismaClient } = require('@prisma/client');
-const crypto = require('crypto');
+import { PrismaClient } from '@prisma/client';
+import * as crypto from 'crypto';
+import { printDatabaseConfig } from './env-helper';
 
 const prisma = new PrismaClient();
 
-function hashPassword(password) {
+function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 async function main() {
-  console.log('Seeding database perpustakaan...');
+  console.log('🌱 Seeding database perpustakaan...\n');
+  
+  // Print database config
+  printDatabaseConfig();
 
   // 1. Seed pengguna (Users)
   console.log('Seeding pengguna...');
@@ -17,21 +21,21 @@ async function main() {
       nama: 'Administrator',
       username: 'admin',
       password_hash: hashPassword('admin'),
-      peran: 'admin',
+      peran: 'admin' as const,
       status_aktif: true,
     },
     {
       nama: 'Petugas Perpustakaan',
       username: 'petugas',
       password_hash: hashPassword('petugas'),
-      peran: 'petugas',
+      peran: 'petugas' as const,
       status_aktif: true,
     },
     {
       nama: 'Kepala Perpustakaan',
       username: 'kepala',
       password_hash: hashPassword('kepala'),
-      peran: 'kepala_perpustakaan',
+      peran: 'kepala_perpustakaan' as const,
       status_aktif: true,
     },
   ];
@@ -107,10 +111,24 @@ async function main() {
 
   // 4. Seed bahan_pustaka (Books)
   console.log('Seeding bahan pustaka...');
-  const books = [
+  
+  interface BookData {
+    judul: string;
+    id_kategori: number;
+    pengarang: string;
+    penerbit: string;
+    tahun_terbit: number;
+    isbn: string;
+    nomor_panggil: string;
+    jumlah_eksemplar: number;
+    deskripsi: string;
+    eksemplars: string[];
+  }
+
+  const books: BookData[] = [
     {
       judul: 'Dasar Pemrograman Next.js & TypeScript',
-      id_kategori: dbCategories.find(c => c.no_klasifikasi === '000').id_kategori,
+      id_kategori: dbCategories.find(c => c.no_klasifikasi === '000')!.id_kategori,
       pengarang: 'Rafli Aditya',
       penerbit: 'TechPress Jakarta',
       tahun_terbit: 2025,
@@ -122,7 +140,7 @@ async function main() {
     },
     {
       judul: 'Matematika Diskrit dan Aplikasinya',
-      id_kategori: dbCategories.find(c => c.no_klasifikasi === '500').id_kategori,
+      id_kategori: dbCategories.find(c => c.no_klasifikasi === '500')!.id_kategori,
       pengarang: 'Rinaldi Munir',
       penerbit: 'Informatika Bandung',
       tahun_terbit: 2021,
@@ -134,7 +152,7 @@ async function main() {
     },
     {
       judul: 'Ensiklopedia Sejarah Dunia',
-      id_kategori: dbCategories.find(c => c.no_klasifikasi === '900').id_kategori,
+      id_kategori: dbCategories.find(c => c.no_klasifikasi === '900')!.id_kategori,
       pengarang: 'Prof. Sartono',
       penerbit: 'Gramedia Pustaka Utama',
       tahun_terbit: 2019,
@@ -189,7 +207,7 @@ async function main() {
       email: 'rafli@perpustakaan.my.id',
       no_telepon: '081234567890',
       alamat: 'Jl. Merdeka No. 17, Jakarta',
-      jenis_anggota: 'siswa',
+      jenis_anggota: 'siswa' as const,
       status_aktif: true,
       tanggal_daftar: new Date(),
     },
@@ -199,7 +217,7 @@ async function main() {
       email: 'jane.doe@gmail.com',
       no_telepon: '08987654321',
       alamat: 'Apartemen Green Pramuka Tower B-10',
-      jenis_anggota: 'umum',
+      jenis_anggota: 'umum' as const,
       status_aktif: true,
       tanggal_daftar: new Date(),
     },
@@ -209,7 +227,7 @@ async function main() {
       email: 'budi.santoso@univ.ac.id',
       no_telepon: '081122334455',
       alamat: 'Perumahan Dosen UI Block C',
-      jenis_anggota: 'guru_dosen',
+      jenis_anggota: 'guru_dosen' as const,
       status_aktif: true,
       tanggal_daftar: new Date(),
     },
