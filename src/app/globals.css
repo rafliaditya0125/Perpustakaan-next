@@ -3,6 +3,47 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --surface: #f7fafc;
+  --surface-muted: #e2e8f0;
+  --border: rgba(15, 23, 42, 0.12);
+}
+
+[data-theme='dark'] {
+  --background: #020617;
+  --foreground: #f8fafc;
+  --surface: #0f172a;
+  --surface-muted: #111827;
+  --border: rgba(148, 163, 184, 0.18);
+}
+
+[data-theme='system'] {
+  color-scheme: normal;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] {
+    --background: #020617;
+    --foreground: #f8fafc;
+    --surface: #0f172a;
+    --surface-muted: #111827;
+    --border: rgba(148, 163, 184, 0.18);
+  }
+  :root[data-theme='system'] {
+    color-scheme: dark;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme='system'] {
+    --background: #ffffff;
+    --foreground: #171717;
+    --surface: #f7fafc;
+    --surface-muted: #e2e8f0;
+    --border: rgba(15, 23, 42, 0.12);
+  }
+  :root[data-theme='system'] {
+    color-scheme: light;
+  }
 }
 
 @theme inline {
@@ -12,15 +53,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.theme-switcher {
+  min-width: 11rem;
+}
+
+@media (max-width: 640px) {
+  .theme-switcher {
+    right: 1rem;
+    left: auto;
+    bottom: 1rem;
+  }
 }
