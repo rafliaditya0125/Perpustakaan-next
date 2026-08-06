@@ -28,7 +28,7 @@ export default async function LoginPage({
         </div>
 
         {/* Login Form */}
-        <form action={loginAction} className="space-y-6">
+        <form action={loginAction} method="POST" className="space-y-6">
           
           {/* Username Field */}
           <div className="space-y-2">

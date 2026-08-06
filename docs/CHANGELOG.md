@@ -4,6 +4,58 @@ Semua perubahan penting pada project ini akan didokumentasikan di file ini.
 
 ---
 
+## [1.2.0] - 2026-08-06
+
+### ✨ New Features
+
+#### 🗄️ Multi-Database Support
+- ✅ Support untuk 4 database systems:
+  - **MySQL / MariaDB** - Production ready, widely supported
+  - **PostgreSQL** - Enterprise features, advanced search
+  - **SQLite** - Development, testing, embedded
+  - **SQL Server** - Windows environments, .NET integration
+- ✅ Switch database dengan mengubah `DB_PROVIDER` di `.env`
+- ✅ Auto-generate connection string per database type
+- ✅ Database-specific feature detection
+- ✅ Prisma provider auto-selection
+
+#### 🔧 Enhanced Database Configuration
+- ✅ `DB_PROVIDER` environment variable untuk memilih database
+- ✅ Provider-specific default values (port, user)
+- ✅ SQLite file path configuration (`DB_PATH`)
+- ✅ PostgreSQL schema support (`DB_SCHEMA`)
+- ✅ SQL Server encryption option (`DB_ENCRYPT`)
+- ✅ Updated `prisma/env-helper.ts` dengan multi-database logic
+- ✅ Database feature detection (`getDatabaseFeatures()`)
+
+#### 🐛 Bug Fixes
+- ✅ Fixed login form error: `Cannot read properties of undefined (reading 'get')`
+  - Changed `loginAction` signature dari `(prevState, formData)` ke `(formData)`
+  - Added FormData validation
+  - Changed error handling dari return object ke redirect with query params
+  - Added `method="POST"` attribute to form
+
+#### 📚 Documentation
+- ✅ New `docs/MULTI_DATABASE.md` - Comprehensive multi-database guide
+  - Setup instructions per database
+  - Comparison matrix
+  - Switching guide
+  - Configuration examples
+  - Recommendations per use case
+  - Troubleshooting per database
+- ✅ Updated `.env.example` dengan configuration examples untuk semua database
+- ✅ Updated `docs/README.md` dengan link ke MULTI_DATABASE.md
+- ✅ Updated `docs/CHANGELOG.md` dengan versi terbaru
+
+### 🔧 Technical Changes
+- ✅ Refactored `loginAction` untuk fix FormData undefined error
+- ✅ Enhanced `prisma/env-helper.ts` dengan multi-provider support
+- ✅ Added provider-specific connection string builders
+- ✅ Added password masking untuk all database types
+- ✅ Improved error messages dengan URL encoding
+
+---
+
 ## [1.1.0] - 2026-08-05
 
 ### ✨ New Features

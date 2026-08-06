@@ -26,12 +26,19 @@ async function logAktivitas(id_pengguna: number, aktivitas: string, tabel_terdam
 }
 
 // 1. AUTH ACTIONS
-export async function loginAction(prevState: any, formData: FormData) {
+export async function loginAction(formData: FormData) {
+  'use server';
+  
+  // Validate formData exists
+  if (!formData || !(formData instanceof FormData)) {
+    redirect('/login?error=' + encodeURIComponent('Invalid form submission'));
+  }
+  
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
 
   if (!username || !password) {
-    return { error: 'Username dan password wajib diisi.' };
+    redirect('/login?error=' + encodeURIComponent('Username dan password wajib diisi'));
   }
 
   try {
@@ -40,12 +47,12 @@ export async function loginAction(prevState: any, formData: FormData) {
     });
 
     if (!user || !user.status_aktif) {
-      return { error: 'Username tidak ditemukan atau akun tidak aktif.' };
+      redirect('/login?error=' + encodeURIComponent('Username tidak ditemukan atau akun tidak aktif'));
     }
 
     const hashedPassword = hashPassword(password);
     if (user.password_hash !== hashedPassword) {
-      return { error: 'Password salah.' };
+      redirect('/login?error=' + encodeURIComponent('Password salah'));
     }
 
     // Set cookie session (simple JSON string base64 encoded for demonstration security)
@@ -66,8 +73,8 @@ export async function loginAction(prevState: any, formData: FormData) {
 
     await logAktivitas(user.id_pengguna, 'Login ke sistem', 'pengguna');
   } catch (err) {
-    console.error(err);
-    return { error: 'Terjadi kesalahan sistem saat login.' };
+    console.error('Login error:', err);
+    redirect('/login?error=' + encodeURIComponent('Terjadi kesalahan sistem saat login'));
   }
 
   redirect('/dashboard');

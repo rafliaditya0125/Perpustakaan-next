@@ -23,10 +23,18 @@ Selamat datang di dokumentasi lengkap aplikasi E-Perpustakaan. Folder ini berisi
 
 3. **[DATABASE_CONFIG.md](DATABASE_CONFIG.md)** - Konfigurasi Database ⭐ BARU!
    - Environment variables terpisah (DB_HOST, DB_PORT, dll.)
+   - Multi-database support (MySQL, PostgreSQL, SQLite, SQL Server)
    - TypeScript migration & seed
    - Test koneksi database
    - Remote database setup
    - Password dengan karakter khusus
+
+4. **[MULTI_DATABASE.md](MULTI_DATABASE.md)** - Multi-Database Support ⭐ BARU!
+   - Support untuk MySQL, PostgreSQL, SQLite, SQL Server
+   - Perbandingan dan rekomendasi
+   - Switching database guide
+   - Configuration examples
+   - Troubleshooting per database
 
 4. **[MIGRATION.md](MIGRATION.md)** - TypeScript Migration System ⭐ BARU!
    - Migration berbasis TypeScript (bukan SQL)
@@ -102,6 +110,7 @@ docs/
 ├── QUICKSTART.md                                # Quick start 5 menit
 ├── SETUP.md                                     # Setup lengkap + troubleshooting
 ├── DATABASE_CONFIG.md                           # Konfigurasi database ⭐
+├── MULTI_DATABASE.md                            # Multi-database support ⭐
 ├── MIGRATION.md                                 # TypeScript migration system ⭐
 ├── TROUBLESHOOTING.md                           # Troubleshooting guide
 ├── CHANGELOG.md                                 # Changelog fitur
@@ -141,9 +150,10 @@ docs/
 ### Untuk Database Administrator
 1. Baca **[Desain_Database_Perpustakaan_Rafli.md](Desain_Database_Perpustakaan_Rafli.md)** untuk ERD dan kamus data
 2. Cek **[DATABASE_CONFIG.md](DATABASE_CONFIG.md)** untuk konfigurasi database
-3. Review **[MIGRATION.md](MIGRATION.md)** untuk TypeScript migration system
-4. Cek file `prisma/schema.prisma` di root project untuk schema aktual
-5. Review **[SETUP.md](SETUP.md)** untuk database management commands
+3. Review **[MULTI_DATABASE.md](MULTI_DATABASE.md)** untuk memilih database yang sesuai
+4. Review **[MIGRATION.md](MIGRATION.md)** untuk TypeScript migration system
+5. Cek file `prisma/schema.prisma` di root project untuk schema aktual
+6. Review **[SETUP.md](SETUP.md)** untuk database management commands
 
 ---
 
@@ -160,12 +170,13 @@ docs/
 
 | Dokumen | Status | Last Update |
 |---------|--------|-------------|
-| QUICKSTART.md | ✅ Complete | 2026-08-05 |
-| SETUP.md | ✅ Complete | 2026-08-05 |
-| DATABASE_CONFIG.md | ✅ Complete | 2026-08-05 |
+| QUICKSTART.md | ✅ Complete | 2026-08-06 |
+| SETUP.md | ✅ Complete | 2026-08-06 |
+| DATABASE_CONFIG.md | ✅ Complete | 2026-08-06 |
+| MULTI_DATABASE.md | ✅ Complete | 2026-08-06 |
 | MIGRATION.md | ✅ Complete | 2026-08-05 |
 | TROUBLESHOOTING.md | ✅ Complete | 2026-08-05 |
-| CHANGELOG.md | ✅ Complete | 2026-08-05 |
+| CHANGELOG.md | ✅ Complete | 2026-08-06 |
 | CONTRIBUTING.md | ✅ Complete | 2026-08-05 |
 | implementation_plan.md | ✅ Complete | 2026-08-05 |
 | BRD_Perpustakaan_Rafli.md | ✅ Complete | Original spec |
