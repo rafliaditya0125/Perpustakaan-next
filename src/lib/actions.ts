@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import prisma from './db';
+import { JenisDenda, KondisiEksemplar, StatusEksemplar } from '@prisma/client';
 import crypto from 'crypto';
 
 // Helper to hash password
@@ -168,7 +169,7 @@ export async function createBookAction(data: {
   nomor_panggil?: string;
   deskripsi?: string;
   barcodes: string[];
-}) {
+}): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
@@ -461,7 +462,7 @@ export async function extendLoanAction(id_transaksi: number) {
   return { success: true };
 }
 
-export async function payFineAction(id_denda: number) {
+export async function payFineAction(id_denda: number): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
@@ -478,9 +479,16 @@ export async function payFineAction(id_denda: number) {
   return { success: true };
 }
 
-export async function createReservasiAction(id_anggota: number, id_bahan: number) {
+export async function createReservasiAction(id_anggota: number, id_bahan: number): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
+
+  const existing = await prisma.reservasi.findFirst({
+    where: { id_anggota, id_bahan, status: 'menunggu' },
+  });
+  if (existing) {
+    return { error: 'Reservasi untuk buku ini sudah ada.' };
+  }
 
   const newReservation = await prisma.reservasi.create({
     data: {

@@ -61,12 +61,12 @@ export default function CirculationClient({
   // Search filter
   const [searchTerm, setSearchTerm] = useState('');
 
-  const triggerNotify = (type: 'success' | 'error', msg: string) => {
+  const triggerNotify = (type: 'success' | 'error', msg: string | undefined) => {
     if (type === 'success') {
-      setSuccessMsg(msg);
+      setSuccessMsg(msg || 'Operasi berhasil.');
       setErrorMsg(null);
     } else {
-      setErrorMsg(msg);
+      setErrorMsg(msg || 'Terjadi kesalahan.');
       setSuccessMsg(null);
     }
     setTimeout(() => {
@@ -82,7 +82,7 @@ export default function CirculationClient({
 
     try {
       const res = await borrowBookAction(borrowNoIdentitas, borrowBarcode);
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         triggerNotify('success', 'Buku berhasil dipinjam!');
@@ -103,7 +103,7 @@ export default function CirculationClient({
 
     try {
       const res = await returnBookAction(selectedReturnTrx, returnKondisi);
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         const dendaValue = res && 'denda' in res ? Number(res.denda) : 0;
@@ -125,7 +125,7 @@ export default function CirculationClient({
     setLoading(true);
     try {
       const res = await extendLoanAction(idTrx);
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         triggerNotify('success', 'Masa pinjam buku berhasil diperpanjang!');
@@ -142,7 +142,7 @@ export default function CirculationClient({
     setLoading(true);
     try {
       const res = await payFineAction(idDenda);
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         triggerNotify('success', 'Denda lunas dibayarkan!');
@@ -162,7 +162,7 @@ export default function CirculationClient({
 
     try {
       const res = await createReservasiAction(Number(reservasiAnggotaId), Number(reservasiBahanId));
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         triggerNotify('success', 'Antrean reservasi buku berhasil didaftarkan.');

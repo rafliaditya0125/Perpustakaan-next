@@ -42,12 +42,12 @@ export default function MembersClient({ members }: MembersClientProps) {
   const [jenisAnggota, setJenisAnggota] = useState<'siswa' | 'mahasiswa' | 'guru_dosen' | 'umum'>('siswa');
   const [statusAktif, setStatusAktif] = useState(true);
 
-  const triggerNotify = (type: 'success' | 'error', msg: string) => {
+  const triggerNotify = (type: 'success' | 'error', msg: string | undefined) => {
     if (type === 'success') {
-      setSuccessMsg(msg);
+      setSuccessMsg(msg || 'Operasi berhasil.');
       setErrorMsg(null);
     } else {
-      setErrorMsg(msg);
+      setErrorMsg(msg || 'Terjadi kesalahan.');
       setSuccessMsg(null);
     }
     setTimeout(() => {
@@ -71,7 +71,7 @@ export default function MembersClient({ members }: MembersClientProps) {
         jenis_anggota: jenisAnggota,
       });
 
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         triggerNotify('success', 'Anggota berhasil ditambahkan!');

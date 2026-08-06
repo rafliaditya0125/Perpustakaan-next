@@ -24,19 +24,15 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname === '/login' || pathname === '/') {
+  if (pathname === '/login') {
     if (session) {
-      // If already logged in, redirect to dashboard
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
       return NextResponse.redirect(url);
     }
-    if (pathname === '/') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      return NextResponse.redirect(url);
-    }
   }
+
+  return NextResponse.next();
 
   return NextResponse.next();
 }

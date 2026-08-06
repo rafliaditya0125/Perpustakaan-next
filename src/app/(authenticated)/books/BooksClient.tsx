@@ -33,9 +33,14 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
   const [deskripsi, setDeskripsi] = useState('');
   const [barcodes, setBarcodes] = useState(['']);
 
-  const triggerNotify = (type: 'success' | 'error', msg: string) => {
-    if (type === 'success') { setSuccessMsg(msg); setErrorMsg(null); }
-    else { setErrorMsg(msg); setSuccessMsg(null); }
+  const triggerNotify = (type: 'success' | 'error', msg: string | undefined) => {
+    if (type === 'success') {
+      setSuccessMsg(msg || 'Operasi berhasil.');
+      setErrorMsg(null);
+    } else {
+      setErrorMsg(msg || 'Terjadi kesalahan.');
+      setSuccessMsg(null);
+    }
     setTimeout(() => { setSuccessMsg(null); setErrorMsg(null); }, 5000);
   };
 
@@ -58,7 +63,7 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
         isbn, nomor_panggil: nomorPanggil, deskripsi, barcodes: validBarcodes,
       });
 
-      if (res?.error) {
+      if (res && 'error' in res) {
         triggerNotify('error', res.error);
       } else {
         triggerNotify('success', 'Bahan pustaka berhasil ditambahkan!');
