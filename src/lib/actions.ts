@@ -27,19 +27,18 @@ async function logAktivitas(id_pengguna: number, aktivitas: string, tabel_terdam
 }
 
 // 1. AUTH ACTIONS
-export async function loginAction(formData: FormData) {
+export async function staffLoginAction(formData: FormData) {
   'use server';
   
-  // Validate formData exists
   if (!formData || !(formData instanceof FormData)) {
-    redirect('/login?error=' + encodeURIComponent('Invalid form submission'));
+    redirect('/petugas/login?error=' + encodeURIComponent('Invalid form submission'));
   }
-  
+
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
 
   if (!username || !password) {
-    redirect('/login?error=' + encodeURIComponent('Username dan password wajib diisi'));
+    redirect('/petugas/login?error=' + encodeURIComponent('Username dan password wajib diisi'));
   }
 
   try {
@@ -48,15 +47,14 @@ export async function loginAction(formData: FormData) {
     });
 
     if (!user || !user.status_aktif) {
-      redirect('/login?error=' + encodeURIComponent('Username tidak ditemukan atau akun tidak aktif'));
+      redirect('/petugas/login?error=' + encodeURIComponent('Username tidak ditemukan atau akun tidak aktif'));
     }
 
     const hashedPassword = hashPassword(password);
     if (user.password_hash !== hashedPassword) {
-      redirect('/login?error=' + encodeURIComponent('Password salah'));
+      redirect('/petugas/login?error=' + encodeURIComponent('Password salah'));
     }
 
-    // Set cookie session (simple JSON string base64 encoded for demonstration security)
     const sessionData = JSON.stringify({
       id_pengguna: user.id_pengguna,
       nama: user.nama,
@@ -68,32 +66,80 @@ export async function loginAction(formData: FormData) {
     cookieStore.set('session-user', Buffer.from(sessionData).toString('base64'), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 8, // 8 hours
+      maxAge: 60 * 60 * 8,
       path: '/',
     });
 
     await logAktivitas(user.id_pengguna, 'Login ke sistem', 'pengguna');
   } catch (err) {
     console.error('Login error:', err);
-    redirect('/login?error=' + encodeURIComponent('Terjadi kesalahan sistem saat login'));
+    redirect('/petugas/login?error=' + encodeURIComponent('Terjadi kesalahan sistem saat login'));
   }
 
-  redirect('/dashboard');
+  redirect('/petugas/dashboard');
+}
+
+export async function memberLoginAction(formData: FormData) {
+  'use server';
+
+  if (!formData || !(formData instanceof FormData)) {
+    redirect('/login?error=' + encodeURIComponent('Invalid form submission'));
+  }
+
+  const noIdentitas = formData.get('no_identitas') as string;
+
+  if (!noIdentitas) {
+    redirect('/login?error=' + encodeURIComponent('No. identitas wajib diisi'));
+  }
+
+  try {
+    const member = await prisma.anggota.findUnique({
+      where: { no_identitas: noIdentitas },
+    });
+
+    if (!member || !member.status_aktif) {
+      redirect('/login?error=' + encodeURIComponent('Anggota tidak ditemukan atau tidak aktif'));
+    }
+
+    const sessionData = JSON.stringify({
+      id_anggota: member.id_anggota,
+      nama: member.nama,
+      no_identitas: member.no_identitas,
+      peran: 'anggota',
+    });
+
+    const cookieStore = await cookies();
+    cookieStore.set('session-user', Buffer.from(sessionData).toString('base64'), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 8,
+      path: '/',
+    });
+  } catch (err) {
+    console.error('Member login error:', err);
+    redirect('/login?error=' + encodeURIComponent('Terjadi kesalahan sistem saat login anggota'));
+  }
+
+  redirect('/anggota');
 }
 
 export async function logoutAction() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('session-user');
-  
+  let redirectTarget = '/login';
+
   if (sessionCookie) {
     try {
       const userData = JSON.parse(Buffer.from(sessionCookie.value, 'base64').toString('ascii'));
-      await logAktivitas(userData.id_pengguna, 'Logout dari sistem', 'pengguna');
+      if (userData.peran === 'admin' || userData.peran === 'petugas' || userData.peran === 'kepala_perpustakaan') {
+        redirectTarget = '/petugas/login';
+      }
+      await logAktivitas(userData.id_pengguna ?? 0, 'Logout dari sistem', 'pengguna');
     } catch (_) {}
   }
-  
+
   cookieStore.delete('session-user');
-  redirect('/login');
+  redirect(redirectTarget);
 }
 
 export async function getSessionUser() {
@@ -105,6 +151,14 @@ export async function getSessionUser() {
   } catch (err) {
     return null;
   }
+}
+
+async function getDefaultPetugasUser() {
+  return prisma.pengguna.findFirst({
+    where: { peran: 'petugas', status_aktif: true },
+  }) || prisma.pengguna.findFirst({
+    where: { status_aktif: true },
+  });
 }
 
 // 2. MEMBER ACTIONS
@@ -228,7 +282,7 @@ export async function updateEksemplarKondisiStatus(id: number, kondisi: 'baik' |
 }
 
 // 4. SIRKULASI ACTIONS
-export async function borrowBookAction(no_identitas: string, barcode: string) {
+export async function borrowBookAction(no_identitas: string, barcode: string): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
@@ -243,7 +297,6 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
     return { error: 'Status keanggotaan tidak aktif.' };
   }
 
-  // Validation 1: Fines check (SOP §9.4: "Anggota yang memiliki tunggakan denda tidak diperkenankan meminjam")
   const activeFines = await prisma.denda.findMany({
     where: {
       status_pembayaran: 'belum_bayar',
@@ -256,7 +309,6 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
     return { error: 'Anggota memiliki tunggakan denda yang belum dilunasi.' };
   }
 
-  // Validation 2: Active loans check (SOP §5.2: "Maksimal 3 eksemplar bahan pustaka")
   const activeLoans = await prisma.transaksi_peminjaman.findMany({
     where: {
       id_anggota: member.id_anggota,
@@ -264,7 +316,6 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
     },
   });
 
-  // Get policy parameter 'batas_pinjam'
   const policyLimitParam = await prisma.parameter_kebijakan.findUnique({
     where: { nama_parameter: 'batas_pinjam' },
   });
@@ -274,7 +325,6 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
     return { error: `Anggota sudah mencapai batas maksimal peminjaman (${maxLimit} buku).` };
   }
 
-  // Find eksemplar
   const eksemplar = await prisma.eksemplar.findUnique({
     where: { kode_barcode: barcode },
     include: { bahan_pustaka: true },
@@ -286,10 +336,7 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
     return { error: `Buku dengan barcode ${barcode} sedang tidak tersedia (Status: ${eksemplar.status}).` };
   }
 
-  // Policy: duration of loan based on category (SOP §5.3: "7 hari buku umum, 3 hari referensi")
-  // Let's check call number starts with 'REF'
   const isReference = eksemplar.bahan_pustaka.nomor_panggil?.toUpperCase().startsWith('REF') || false;
-  
   const paramKey = isReference ? 'lama_pinjam_referensi' : 'lama_pinjam_umum';
   const durationParam = await prisma.parameter_kebijakan.findUnique({
     where: { nama_parameter: paramKey },
@@ -297,16 +344,28 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
   const days = parseInt(durationParam?.nilai || (isReference ? '3' : '7'));
 
   const today = new Date();
-  const dueDate = new Date();
+  const dueDate = new Date(today);
   dueDate.setDate(today.getDate() + days);
 
-  // Transaction block
+  let staffUserId = user.id_pengguna;
+  if (!staffUserId || user.peran === 'anggota') {
+    const defaultPetugas = await prisma.pengguna.findFirst({
+      where: { peran: 'petugas', status_aktif: true },
+    }) || await prisma.pengguna.findFirst({
+      where: { status_aktif: true },
+    });
+    if (!defaultPetugas) {
+      return { error: 'Tidak ada petugas tersedia untuk memproses peminjaman.' };
+    }
+    staffUserId = defaultPetugas.id_pengguna;
+  }
+
   await prisma.$transaction([
     prisma.transaksi_peminjaman.create({
       data: {
         id_anggota: member.id_anggota,
         id_eksemplar: eksemplar.id_eksemplar,
-        id_pengguna: user.id_pengguna,
+        id_pengguna: staffUserId,
         tanggal_pinjam: today,
         tanggal_jatuh_tempo: dueDate,
         status: 'dipinjam',
@@ -318,8 +377,26 @@ export async function borrowBookAction(no_identitas: string, barcode: string) {
     }),
   ]);
 
-  await logAktivitas(user.id_pengguna, `Memproses pinjaman buku ${eksemplar.bahan_pustaka.judul} untuk anggota ${member.nama}`, 'transaksi_peminjaman');
+  await logAktivitas(staffUserId, `Memproses pinjaman buku ${eksemplar.bahan_pustaka.judul} untuk anggota ${member.nama}`, 'transaksi_peminjaman');
   return { success: true };
+}
+
+export async function borrowBookByIdAction(id_bahan: number): Promise<{ success: true } | { error: string }> {
+  const user = await getSessionUser();
+  if (!user || user.peran !== 'anggota') {
+    return { error: 'Hanya anggota yang dapat meminjam buku dari portal anggota.' };
+  }
+
+  const eksemplar = await prisma.eksemplar.findFirst({
+    where: { id_bahan, status: 'tersedia' },
+    include: { bahan_pustaka: true },
+  });
+
+  if (!eksemplar) {
+    return { error: 'Tidak ada eksemplar tersedia untuk buku ini.' };
+  }
+
+  return borrowBookAction(user.no_identitas, eksemplar.kode_barcode);
 }
 
 export async function returnBookAction(id_transaksi: number, kondisi_kembali: 'baik' | 'rusak_ringan' | 'rusak_berat' | 'hilang') {

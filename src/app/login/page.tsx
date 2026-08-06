@@ -1,4 +1,4 @@
-import { loginAction } from '@/lib/actions';
+import { memberLoginAction } from '@/lib/actions';
 import { BookMarked, User, Lock, AlertTriangle } from 'lucide-react';
 
 export default async function LoginPage({
@@ -28,22 +28,22 @@ export default async function LoginPage({
         </div>
 
         {/* Login Form */}
-        <form action={loginAction} method="POST" className="space-y-6">
+        <form action={memberLoginAction} method="POST" className="space-y-6">
           
-          {/* Username Field */}
+          {/* Identity Field */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block" htmlFor="username">
-              Username
+            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block" htmlFor="no_identitas">
+              No. Identitas Anggota
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 pointer-events-none">
                 <User className="w-4.5 h-4.5" />
               </span>
               <input
-                id="username"
-                name="username"
+                id="no_identitas"
+                name="no_identitas"
                 type="text"
-                placeholder="Masukkan username petugas..."
+                placeholder="Masukkan nomor identitas anggota..."
                 required
                 className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl text-sm text-slate-100 placeholder-slate-600 transition-all duration-200 outline-none"
               />
@@ -64,11 +64,12 @@ export default async function LoginPage({
                 name="password"
                 type="password"
                 placeholder="Masukkan password..."
-                required
-                className="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl text-sm text-slate-100 placeholder-slate-600 transition-all duration-200 outline-none"
+                disabled
+                className="w-full pl-10 pr-4 py-3 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-slate-400 placeholder-slate-600"
               />
             </div>
           </div>
+          <p className="text-xs text-slate-500">Masuk anggota hanya dengan nomor identitas. Jika belum terdaftar, daftar keanggotaan dahulu.</p>
 
           {/* Error Message */}
           {errorMsg && (
@@ -83,7 +84,7 @@ export default async function LoginPage({
             type="submit"
             className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl transition-all duration-200 shadow-lg shadow-indigo-600/20 active:scale-[0.98] cursor-pointer"
           >
-            Masuk ke Sistem
+            Masuk Anggota
           </button>
         </form>
 
@@ -91,7 +92,10 @@ export default async function LoginPage({
         <div className="mt-8 pt-6 border-t border-slate-800/80 text-[11px] text-slate-500 flex flex-col gap-1 items-center">
           <p>Sistem ini dilindungi enkripsi standar keamanan perpustakaan.</p>
           <p className="text-slate-600 mt-2 font-mono">
-            Demo: admin/admin | petugas/petugas | kepala/kepala
+            Demo anggota: gunakan nomor identitas anggota terdaftar.
+          </p>
+          <p className="mt-2 text-xs text-slate-400">
+            Petugas? <a href="/petugas/login" className="text-indigo-300 underline">Masuk di halaman petugas</a>
           </p>
         </div>
 

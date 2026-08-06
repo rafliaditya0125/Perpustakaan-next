@@ -10,7 +10,7 @@ export default async function AuthenticatedLayout({
   const user = await getSessionUser();
 
   if (!user) {
-    redirect('/login');
+    redirect('/petugas/login');
   }
 
   return (

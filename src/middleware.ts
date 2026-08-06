@@ -5,30 +5,36 @@ export function middleware(request: NextRequest) {
   const session = request.cookies.get('session-user');
   const { pathname } = request.nextUrl;
 
-  // Paths requiring authentication
-  const isProtectedPath =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/members') ||
-    pathname.startsWith('/books') ||
-    pathname.startsWith('/sirkulasi') ||
-    pathname.startsWith('/operasional') ||
-    pathname.startsWith('/opname') ||
-    pathname.startsWith('/settings');
+  const isPetugasProtectedPath = pathname.startsWith('/petugas/') && pathname !== '/petugas/login';
+  const isAnggotaProtectedPath = pathname.startsWith('/anggota');
 
-  if (isProtectedPath) {
+  if (isPetugasProtectedPath || isAnggotaProtectedPath) {
     if (!session) {
-      // Redirect to login if not authenticated
       const url = request.nextUrl.clone();
-      url.pathname = '/login';
+      url.pathname = pathname.startsWith('/petugas/') ? '/petugas/login' : '/login';
       return NextResponse.redirect(url);
     }
   }
 
-  if (pathname === '/login') {
-    if (session) {
+  if (pathname === '/login' && session) {
+    try {
+      const userData = JSON.parse(Buffer.from(session.value, 'base64').toString('ascii'));
       const url = request.nextUrl.clone();
-      url.pathname = '/dashboard';
+      url.pathname = userData.peran === 'anggota' ? '/anggota' : '/petugas/dashboard';
       return NextResponse.redirect(url);
+    } catch {
+      // ignore parse error and allow /login
+    }
+  }
+
+  if (pathname === '/petugas/login' && session) {
+    try {
+      const userData = JSON.parse(Buffer.from(session.value, 'base64').toString('ascii'));
+      const url = request.nextUrl.clone();
+      url.pathname = userData.peran === 'anggota' ? '/anggota' : '/petugas/dashboard';
+      return NextResponse.redirect(url);
+    } catch {
+      // ignore parse error and allow petugas login
     }
   }
 

@@ -37,13 +37,13 @@ export default function Sidebar({ user }: SidebarProps) {
   };
 
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'kepala_perpustakaan', 'petugas'] },
-    { href: '/sirkulasi', label: 'Sirkulasi & Denda', icon: RefreshCw, roles: ['admin', 'petugas'] },
-    { href: '/books', label: 'Koleksi Buku', icon: BookOpen, roles: ['admin', 'kepala_perpustakaan', 'petugas'] },
-    { href: '/members', label: 'Keanggotaan', icon: Users, roles: ['admin', 'petugas'] },
-    { href: '/operasional', label: 'Operasional Harian', icon: ClipboardCheck, roles: ['admin', 'petugas'] },
-    { href: '/opname', label: 'Stock Opname', icon: PackageSearch, roles: ['admin', 'petugas', 'kepala_perpustakaan'] },
-    { href: '/settings', label: 'Pengaturan & Log', icon: Settings, roles: ['admin'] },
+    { href: '/petugas/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'kepala_perpustakaan', 'petugas'] },
+    { href: '/petugas/sirkulasi', label: 'Sirkulasi & Denda', icon: RefreshCw, roles: ['admin', 'petugas'] },
+    { href: '/petugas/books', label: 'Koleksi Buku', icon: BookOpen, roles: ['admin', 'kepala_perpustakaan', 'petugas'] },
+    { href: '/petugas/members', label: 'Keanggotaan', icon: Users, roles: ['admin', 'petugas'] },
+    { href: '/petugas/operasional', label: 'Operasional Harian', icon: ClipboardCheck, roles: ['admin', 'petugas'] },
+    { href: '/petugas/opname', label: 'Stock Opname', icon: PackageSearch, roles: ['admin', 'petugas', 'kepala_perpustakaan'] },
+    { href: '/petugas/settings', label: 'Pengaturan & Log', icon: Settings, roles: ['admin'] },
   ];
 
   return (

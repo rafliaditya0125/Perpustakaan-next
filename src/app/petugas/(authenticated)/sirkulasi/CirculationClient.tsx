@@ -163,7 +163,7 @@ export default function CirculationClient({
     try {
       const res = await createReservasiAction(Number(reservasiAnggotaId), Number(reservasiBahanId));
       if (res && 'error' in res) {
-        triggerNotify('error', res.error);
+        triggerNotify('error', res.error ?? 'Terjadi kesalahan saat membuat reservasi.');
       } else {
         triggerNotify('success', 'Antrean reservasi buku berhasil didaftarkan.');
         setReservasiAnggotaId(0);

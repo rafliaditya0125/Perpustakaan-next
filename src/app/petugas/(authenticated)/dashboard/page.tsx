@@ -156,7 +156,7 @@ export default async function DashboardPage() {
                 {checklistToday.some((c: any) => c.jenis === 'buka') ? (
                   <span className="text-xs font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full">OK</span>
                 ) : (
-                  <Link href="/operasional" className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition-colors">Isi</Link>
+                  <Link href="/petugas/operasional" className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition-colors">Isi</Link>
                 )}
               </div>
 
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                 {checklistToday.some((c: any) => c.jenis === 'tutup') ? (
                   <span className="text-xs font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full">OK</span>
                 ) : (
-                  <Link href="/operasional" className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition-colors">Isi</Link>
+                  <Link href="/petugas/operasional" className="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition-colors">Isi</Link>
                 )}
               </div>
             </div>
@@ -192,7 +192,7 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                <Link href="/opname" className="text-xs font-bold bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full hover:bg-amber-500/20 transition-all">
+                <Link href="/petugas/opname" className="text-xs font-bold bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full hover:bg-amber-500/20 transition-all">
                   Lanjutkan
                 </Link>
               </div>
@@ -278,16 +278,16 @@ export default async function DashboardPage() {
           <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h2 className="text-md font-bold text-slate-100">Aksi Pintas Layanan</h2>
             <div className="grid grid-cols-2 gap-3">
-              <Link href="/sirkulasi?tab=pinjam" className="p-3 bg-indigo-600/10 border border-indigo-500/20 hover:bg-indigo-600/20 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
+              <Link href="/petugas/sirkulasi?tab=pinjam" className="p-3 bg-indigo-600/10 border border-indigo-500/20 hover:bg-indigo-600/20 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
                 <span className="text-indigo-400 font-semibold text-xs">Peminjaman Buku</span>
               </Link>
-              <Link href="/sirkulasi?tab=kembali" className="p-3 bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600/20 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
+              <Link href="/petugas/sirkulasi?tab=kembali" className="p-3 bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600/20 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
                 <span className="text-emerald-400 font-semibold text-xs">Pengembalian Buku</span>
               </Link>
-              <Link href="/members" className="p-3 bg-slate-800 border border-slate-700/60 hover:bg-slate-700 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
+              <Link href="/petugas/members" className="p-3 bg-slate-800 border border-slate-700/60 hover:bg-slate-700 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
                 <span className="text-slate-300 font-semibold text-xs">Daftar Anggota</span>
               </Link>
-              <Link href="/books" className="p-3 bg-slate-800 border border-slate-700/60 hover:bg-slate-700 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
+              <Link href="/petugas/books" className="p-3 bg-slate-800 border border-slate-700/60 hover:bg-slate-700 rounded-xl text-center flex flex-col items-center gap-2 transition-all">
                 <span className="text-slate-300 font-semibold text-xs">Kelola Buku</span>
               </Link>
             </div>
