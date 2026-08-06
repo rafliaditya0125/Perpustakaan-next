@@ -1,49 +1,113 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --surface: #f7fafc;
+:root,
+html[data-theme='light'] {
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+  --surface: #ffffff;
   --surface-muted: #e2e8f0;
-  --border: rgba(15, 23, 42, 0.12);
+  --border: rgba(148, 163, 184, 0.24);
+  --card-background: #ffffff;
+  --card-border: rgba(148, 163, 184, 0.16);
+  --muted-text: #64748b;
+  --shadow-color: rgba(15, 23, 42, 0.08);
+  color-scheme: light;
 }
 
-[data-theme='dark'] {
+html[data-theme='dark'] {
   --background: #020617;
   --foreground: #f8fafc;
   --surface: #0f172a;
   --surface-muted: #111827;
   --border: rgba(148, 163, 184, 0.18);
+  --card-background: #0f172a;
+  --card-border: rgba(100, 116, 139, 0.22);
+  --muted-text: #94a3b8;
+  color-scheme: dark;
 }
 
-[data-theme='system'] {
-  color-scheme: normal;
+html[data-theme='system'] {
+  color-scheme: no-preference;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root[data-theme='system'] {
+  html[data-theme='system'] {
     --background: #020617;
     --foreground: #f8fafc;
     --surface: #0f172a;
     --surface-muted: #111827;
     --border: rgba(148, 163, 184, 0.18);
-  }
-  :root[data-theme='system'] {
+    --card-background: #0f172a;
+    --card-border: rgba(100, 116, 139, 0.22);
+    --muted-text: #94a3b8;
     color-scheme: dark;
   }
 }
 
 @media (prefers-color-scheme: light) {
-  :root[data-theme='system'] {
-    --background: #ffffff;
-    --foreground: #171717;
-    --surface: #f7fafc;
+  html[data-theme='system'] {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --surface: #ffffff;
     --surface-muted: #e2e8f0;
-    --border: rgba(15, 23, 42, 0.12);
-  }
-  :root[data-theme='system'] {
+    --border: rgba(148, 163, 184, 0.32);
+    --card-background: #ffffff;
+    --card-border: rgba(148, 163, 184, 0.18);
+    --muted-text: #64748b;
     color-scheme: light;
   }
+}
+
+html[data-theme='dark'] body,
+html[data-theme='light'] body,
+html[data-theme='system'] body {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+html[data-theme='dark'] [class*="bg-slate"] {
+  background-color: var(--card-background) !important;
+}
+
+html[data-theme='light'] [class*="bg-slate"] {
+  background-color: rgba(248, 250, 252, 0.95) !important;
+}
+html[data-theme='light'] [class*="bg-slate"] .text-white,
+html[data-theme='light'] [class*="bg-slate"] .text-slate-100,
+html[data-theme='light'] [class*="bg-slate"] .text-slate-200,
+html[data-theme='light'] [class*="bg-slate"] .text-slate-300,
+html[data-theme='light'] [class*="bg-slate"] .text-slate-400,
+html[data-theme='light'] [class*="bg-slate"] .text-slate-500 {
+  color: #0f172a !important;
+}
+html[data-theme='light'] [class*="text-slate"] {
+  color: #334155 !important;
+}
+
+html[data-theme='dark'] [class*="text-slate"] {
+  color: var(--foreground) !important;
+}
+html[data-theme='light'] .text-white {
+  color: #ffffff !important;
+}
+
+html[data-theme='dark'] .text-white {
+  color: #ffffff !important;
+}
+html[data-theme='dark'] [class*="border-slate"] {
+  border-color: var(--card-border) !important;
+}
+
+html[data-theme='light'] [class*="border-slate"] {
+  border-color: var(--card-border) !important;
+}
+
+html[data-theme='dark'] [class*="placeholder-slate"] {
+  color: var(--muted-text) !important;
+}
+
+html[data-theme='light'] [class*="placeholder-slate"] {
+  color: var(--muted-text) !important;
 }
 
 @theme inline {

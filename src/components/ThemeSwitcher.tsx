@@ -11,6 +11,10 @@ type ThemeOption = (typeof themes)[number];
 function applyTheme(theme: ThemeOption) {
   const root = document.documentElement;
   root.setAttribute('data-theme', theme);
+  if (theme === 'system') {
+    root.removeAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', 'system');
+  }
 }
 
 function getStoredTheme(): ThemeOption {
