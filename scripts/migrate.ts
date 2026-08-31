@@ -8,6 +8,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { printDatabaseConfig } from '../prisma/env-helper';
 
 const prisma = new PrismaClient();
@@ -70,7 +71,7 @@ async function loadMigrations(): Promise<Migration[]> {
     const name = file.replace('.ts', '');
     
     try {
-      const module = await import(filePath);
+      const module = await import(pathToFileURL(filePath).href);
       
       if (typeof module.up !== 'function' || typeof module.down !== 'function') {
         console.warn(`⚠️  Migration ${name} missing up() or down() function`);

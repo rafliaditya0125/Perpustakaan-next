@@ -20,7 +20,7 @@ function applyTheme(theme: ThemeOption) {
 function getStoredTheme(): ThemeOption {
   if (typeof window === 'undefined') return 'system';
   const stored = window.localStorage.getItem(THEME_KEY) as ThemeOption | null;
-  return themes.includes(stored as ThemeOption) ? stored : 'system';
+  return (stored && (themes as readonly string[]).includes(stored)) ? stored : 'system';
 }
 
 const iconByTheme: Record<ThemeOption, typeof Monitor> = {

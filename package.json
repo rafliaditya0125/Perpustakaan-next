@@ -20,18 +20,22 @@
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
+    "@swc/helpers": "^0.5.23",
     "dotenv": "^17.4.2",
     "lucide-react": "^1.28.0",
+    "mysql2": "^3.24.2",
     "next": "16.2.12",
     "prisma": "5.22.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.43",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "browserslist": "^4.28.7",
+    "caniuse-lite": "^1.0.30001806",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
@@ -41,5 +45,13 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "esbuild@0.28.1": true,
+    "prisma@5.22.0": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.12.2": true
   }
 }
