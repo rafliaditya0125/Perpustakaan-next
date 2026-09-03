@@ -4,63 +4,82 @@ import { useEffect, useState } from 'react';
 import { Monitor, Sun, Moon } from 'lucide-react';
 
 const THEME_KEY = 'perpustakaan-theme';
-const themes = ['system', 'light', 'dark'] as const;
+const THEMES = ['system', 'light', 'dark'] as const;
+type ThemeOption = (typeof THEMES)[number];
 
-type ThemeOption = (typeof themes)[number];
-
-function applyTheme(theme: ThemeOption) {
+function applyTheme(theme: ThemeOption, prefersDark: boolean) {
+  if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  root.setAttribute('data-theme', theme);
-  if (theme === 'system') {
-    root.removeAttribute('data-theme');
-    document.documentElement.setAttribute('data-theme', 'system');
+  const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+
+  if (isDark) {
+    root.classList.add('dark');
+    root.setAttribute('data-theme', 'dark');
+  } else {
+    root.classList.remove('dark');
+    root.setAttribute('data-theme', 'light');
   }
+  root.setAttribute('data-theme-preference', theme);
 }
-
-function getStoredTheme(): ThemeOption {
-  if (typeof window === 'undefined') return 'system';
-  const stored = window.localStorage.getItem(THEME_KEY) as ThemeOption | null;
-  return (stored && (themes as readonly string[]).includes(stored)) ? stored : 'system';
-}
-
-const iconByTheme: Record<ThemeOption, typeof Monitor> = {
-  system: Monitor,
-  light: Sun,
-  dark: Moon,
-};
 
 export default function ThemeSwitcher() {
+  const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<ThemeOption>('system');
+  const [systemIsDark, setSystemIsDark] = useState(false);
 
   useEffect(() => {
-    const stored = getStoredTheme();
-    setTheme(stored);
-    applyTheme(stored);
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setSystemIsDark(mediaQuery.matches);
+
+    const stored = window.localStorage.getItem(THEME_KEY) as ThemeOption | null;
+    const initialTheme: ThemeOption =
+      stored && (THEMES as readonly string[]).includes(stored) ? stored : 'system';
+
+    setTheme(initialTheme);
+    applyTheme(initialTheme, mediaQuery.matches);
+    setMounted(true);
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemIsDark(e.matches);
+      const currentStored = (window.localStorage.getItem(THEME_KEY) as ThemeOption) || 'system';
+      if (currentStored === 'system') {
+        applyTheme('system', e.matches);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  const handleClick = () => {
-    const nextTheme = themes[(themes.indexOf(theme) + 1) % themes.length];
+  const handleToggle = () => {
+    const currentIndex = THEMES.indexOf(theme);
+    const nextTheme = THEMES[(currentIndex + 1) % THEMES.length];
     setTheme(nextTheme);
     window.localStorage.setItem(THEME_KEY, nextTheme);
-    applyTheme(nextTheme);
+    applyTheme(nextTheme, systemIsDark);
   };
 
-  const Icon = iconByTheme[theme];
+  if (!mounted) {
+    return null;
+  }
+
   const tooltipMap: Record<ThemeOption, string> = {
-    system: 'Mode system (klik untuk light)',
-    light: 'Mode light (klik untuk dark)',
-    dark: 'Mode dark (klik untuk system)',
+    system: `Mode Sistem (${systemIsDark ? 'Device: Gelap' : 'Device: Terang'}) — Klik 1x untuk beralih ke Mode Terang`,
+    light: 'Mode Terang — Klik 1x untuk beralih ke Mode Gelap',
+    dark: 'Mode Gelap — Klik 1x untuk beralih ke Mode Sistem',
   };
 
   return (
     <button
       type="button"
-      onClick={handleClick}
-      className="theme-switcher fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full border border-slate-700/80 bg-slate-950/90 text-slate-100 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.9)] transition hover:border-indigo-400 hover:text-white hover:bg-slate-900/95 focus:outline-none focus:ring-2 focus:ring-indigo-400/30"
-      aria-label={tooltipMap[theme]}
+      onClick={handleToggle}
       title={tooltipMap[theme]}
+      aria-label={tooltipMap[theme]}
+      className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 text-slate-700 shadow-lg shadow-slate-300/30 backdrop-blur-md transition-all duration-200 hover:scale-105 hover:border-indigo-400 hover:text-indigo-600 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-800/90 dark:bg-slate-900/95 dark:text-slate-200 dark:shadow-2xl dark:shadow-black/50 dark:hover:border-indigo-400 dark:hover:text-white cursor-pointer"
     >
-      <Icon className="h-7 w-7" />
+      {theme === 'system' && <Monitor className="h-5 w-5 transition-transform duration-200" />}
+      {theme === 'light' && <Sun className="h-5 w-5 text-amber-500 transition-transform duration-200" />}
+      {theme === 'dark' && <Moon className="h-5 w-5 text-indigo-400 transition-transform duration-200" />}
     </button>
   );
 }

@@ -1,126 +1,214 @@
 @import "tailwindcss";
 
-:root,
-html[data-theme='light'] {
-  --background: #f1f5f9;
+@custom-variant dark (&:is(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --background: #f8fafc;
   --foreground: #0f172a;
-  --surface: #ffffff;
-  --surface-muted: #e2e8f0;
-  --border: rgba(148, 163, 184, 0.24);
-  --card-background: #ffffff;
-  --card-border: rgba(148, 163, 184, 0.16);
-  --muted-text: #64748b;
-  --shadow-color: rgba(15, 23, 42, 0.08);
+  --muted-foreground: #64748b;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
   color-scheme: light;
 }
 
+html.dark,
 html[data-theme='dark'] {
   --background: #020617;
   --foreground: #f8fafc;
-  --surface: #0f172a;
-  --surface-muted: #111827;
-  --border: rgba(148, 163, 184, 0.18);
-  --card-background: #0f172a;
-  --card-border: rgba(100, 116, 139, 0.22);
-  --muted-text: #94a3b8;
+  --muted-foreground: #94a3b8;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --border: #1e293b;
   color-scheme: dark;
 }
 
-html[data-theme='system'] {
-  color-scheme: no-preference;
-}
-
 @media (prefers-color-scheme: dark) {
-  html[data-theme='system'] {
+  :root:not([data-theme='light']) {
     --background: #020617;
     --foreground: #f8fafc;
-    --surface: #0f172a;
-    --surface-muted: #111827;
-    --border: rgba(148, 163, 184, 0.18);
-    --card-background: #0f172a;
-    --card-border: rgba(100, 116, 139, 0.22);
-    --muted-text: #94a3b8;
+    --muted-foreground: #94a3b8;
+    --card: #0f172a;
+    --card-foreground: #f8fafc;
+    --border: #1e293b;
     color-scheme: dark;
   }
 }
 
-@media (prefers-color-scheme: light) {
-  html[data-theme='system'] {
-    --background: #f8fafc;
-    --foreground: #0f172a;
-    --surface: #ffffff;
-    --surface-muted: #e2e8f0;
-    --border: rgba(148, 163, 184, 0.32);
-    --card-background: #ffffff;
-    --card-border: rgba(148, 163, 184, 0.18);
-    --muted-text: #64748b;
-    color-scheme: light;
-  }
-}
-
-html[data-theme='dark'] body,
-html[data-theme='light'] body,
-html[data-theme='system'] body {
-  background: var(--background) !important;
-  color: var(--foreground) !important;
-}
-
-html[data-theme='dark'] [class*="bg-slate"] {
-  background-color: var(--card-background) !important;
-}
-
-html[data-theme='light'] [class*="bg-slate"] {
-  background-color: rgba(248, 250, 252, 0.95) !important;
-}
-html[data-theme='light'] [class*="bg-slate"] .text-white,
-html[data-theme='light'] [class*="bg-slate"] .text-slate-100,
-html[data-theme='light'] [class*="bg-slate"] .text-slate-200,
-html[data-theme='light'] [class*="bg-slate"] .text-slate-300,
-html[data-theme='light'] [class*="bg-slate"] .text-slate-400,
-html[data-theme='light'] [class*="bg-slate"] .text-slate-500 {
-  color: #0f172a !important;
-}
-html[data-theme='light'] [class*="text-slate"] {
-  color: #334155 !important;
-}
-
-html[data-theme='dark'] [class*="text-slate"] {
-  color: var(--foreground) !important;
-}
-html[data-theme='light'] .text-white {
-  color: #ffffff !important;
-}
-
-html[data-theme='dark'] .text-white {
-  color: #ffffff !important;
-}
-html[data-theme='dark'] [class*="border-slate"] {
-  border-color: var(--card-border) !important;
-}
-
-html[data-theme='light'] [class*="border-slate"] {
-  border-color: var(--card-border) !important;
-}
-
-html[data-theme='dark'] [class*="placeholder-slate"] {
-  color: var(--muted-text) !important;
-}
-
-html[data-theme='light'] [class*="placeholder-slate"] {
-  color: var(--muted-text) !important;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* =========================================================
+   TYPOGRAPHY & ELEMENT STYLING GLOBALS (USER REQUEST)
+   ========================================================= */
+
+/* 1. Global Titles: font-extrabold tracking-tight sesuai judul Hero */
+h1, h2, h3, h4, h5, h6,
+.title-font,
+.font-heading {
+  font-weight: 800 !important; /* font-extrabold */
+  letter-spacing: -0.025em !important; /* tracking-tight */
+}
+
+h1 {
+  line-height: 1.15;
+}
+
+/* 2. Global Navbar Links: text-sm font-medium sesuai navbar home */
+nav a,
+.nav-link,
+header nav a {
+  font-size: 0.875rem !important; /* text-sm */
+  font-weight: 500 !important; /* font-medium */
+  letter-spacing: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+/* 3. Global Placeholders: text-sm font-normal text-slate-400 / dark:text-slate-500 sesuai daftar anggota */
+input::placeholder,
+textarea::placeholder,
+select::placeholder,
+::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+  font-size: 0.875rem !important; /* text-sm */
+  font-weight: 400 !important; /* font-normal */
+  opacity: 1 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+html.dark select::placeholder,
+html.dark ::placeholder,
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder,
+html[data-theme='dark'] select::placeholder,
+html[data-theme='dark'] ::placeholder {
+  color: #64748b !important; /* slate-500 */
+}
+
+/* =========================================================
+   DARK MODE INPUT & FOCUS STABILITY (ANTI-WHITE ON CLICK)
+   ========================================================= */
+html.dark input,
+html.dark textarea,
+html.dark select,
+html[data-theme='dark'] input,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] select {
+  background-color: #020617;
+  color: #f8fafc;
+  border-color: #1e293b;
+}
+
+html.dark input:focus,
+html.dark textarea:focus,
+html.dark select:focus,
+html[data-theme='dark'] input:focus,
+html[data-theme='dark'] textarea:focus,
+html[data-theme='dark'] select:focus {
+  background-color: #0b1329 !important; /* Dark navy/slate, never white */
+  color: #ffffff !important;
+  border-color: #6366f1 !important; /* indigo accent */
+}
+
+/* Browser autofill dark mode fix */
+html.dark input:-webkit-autofill,
+html.dark textarea:-webkit-autofill,
+html.dark select:-webkit-autofill,
+html[data-theme='dark'] input:-webkit-autofill,
+html[data-theme='dark'] textarea:-webkit-autofill,
+html[data-theme='dark'] select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* =========================================================
+   DARK MODE HOVER STABILITY (ANTI-WHITE ON HOVER)
+   ========================================================= */
+html.dark [class*="hover:bg-slate-50"]:hover,
+html.dark [class*="hover:bg-slate-100"]:hover,
+html.dark [class*="hover:bg-slate-200"]:hover,
+html.dark [class*="hover:bg-slate-300"]:hover,
+html.dark [class*="hover:bg-white"]:hover,
+html[data-theme='dark'] [class*="hover:bg-slate-50"]:hover,
+html[data-theme='dark'] [class*="hover:bg-slate-100"]:hover,
+html[data-theme='dark'] [class*="hover:bg-slate-200"]:hover,
+html[data-theme='dark'] [class*="hover:bg-slate-300"]:hover,
+html[data-theme='dark'] [class*="hover:bg-white"]:hover {
+  background-color: #1e293b !important; /* Dark slate-800, never white */
+  color: #f8fafc !important;
+}
+
+html.dark table tbody tr:hover,
+html[data-theme='dark'] table tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.45) !important; /* subtle dark surface */
+}
+
+/* =========================================================
+   LIGHT THEME ADAPTATION FOR SUB-PAGES & DASHBOARDS
+   ========================================================= */
+html:not(.dark) .bg-slate-950 {
+  background-color: var(--background);
+}
+
+html:not(.dark) [class*="bg-slate-900"]:not([class*="dark:"]) {
+  background-color: #ffffff;
+  border-color: #e2e8f0;
+}
+
+html:not(.dark) [class*="bg-slate-950/"]:not([class*="dark:"]) {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+html:not(.dark) [class*="border-slate-800"]:not([class*="dark:"]),
+html:not(.dark) [class*="border-slate-700"]:not([class*="dark:"]) {
+  border-color: #e2e8f0;
+}
+
+html:not(.dark) [class*="text-slate-100"]:not([class*="dark:"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not(button):not(button *) {
+  color: #0f172a;
+}
+
+html:not(.dark) [class*="text-slate-200"]:not([class*="dark:"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not(button):not(button *) {
+  color: #1e293b;
+}
+
+html:not(.dark) [class*="text-slate-300"]:not([class*="dark:"]):not(button):not(button *),
+html:not(.dark) [class*="text-slate-400"]:not([class*="dark:"]):not(button):not(button *) {
+  color: #475569;
+}
+
+html:not(.dark) table thead[class*="bg-slate-950"],
+html:not(.dark) table thead[class*="bg-slate-900"] {
+  background-color: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+html:not(.dark) table tr[class*="hover:bg-slate-800"]:hover,
+html:not(.dark) table tr[class*="hover:bg-slate-950"]:hover {
+  background-color: #f8fafc;
+}
+
+/* In light mode, elements with hover:bg-slate-800, hover:bg-slate-700, or hover:bg-slate-900 should NEVER turn dark */
+html:not(.dark) [class*="hover:bg-slate-800"]:hover,
+html:not(.dark) [class*="hover:bg-slate-700"]:hover,
+html:not(.dark) [class*="hover:bg-slate-900"]:hover {
+  background-color: #e0e7ff !important;
+  color: #3730a3 !important;
+}
+
+/* In light mode, category and status badges with bg-slate-800 should be clean tinted pills, never black */
+html:not(.dark) span[class*="bg-slate-800"] {
+  background-color: #e0e7ff !important;
+  color: #3730a3 !important;
+  border: 1px solid #c7d2fe !important;
 }
 
 button,
@@ -128,16 +216,4 @@ input,
 textarea,
 select {
   font: inherit;
-}
-
-.theme-switcher {
-  min-width: 11rem;
-}
-
-@media (max-width: 640px) {
-  .theme-switcher {
-    right: 1rem;
-    left: auto;
-    bottom: 1rem;
-  }
 }

@@ -1,18 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { createMemberAction, updateMemberAction } from '@/lib/actions';
 import { 
   UserPlus, 
-  Edit, 
   Search, 
   UserCheck, 
-  UserX,
-  X,
-  CheckCircle2,
-  AlertCircle
+  UserX, 
+  Edit, 
+  X, 
+  CheckCircle2, 
+  AlertCircle 
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createMemberAction, updateMemberAction } from '@/lib/actions';
 
 interface MembersClientProps {
   members: any[];
@@ -20,20 +20,14 @@ interface MembersClientProps {
 
 export default function MembersClient({ members }: MembersClientProps) {
   const router = useRouter();
-
-  // Messages
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Search filter
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Form states
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMember, setEditingMember] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form inputs
+  // Form states
   const [nama, setNama] = useState('');
   const [noIdentitas, setNoIdentitas] = useState('');
   const [email, setEmail] = useState('');
@@ -42,83 +36,28 @@ export default function MembersClient({ members }: MembersClientProps) {
   const [jenisAnggota, setJenisAnggota] = useState<'siswa' | 'mahasiswa' | 'guru_dosen' | 'umum'>('siswa');
   const [statusAktif, setStatusAktif] = useState(true);
 
-  const triggerNotify = (type: 'success' | 'error', msg: string | undefined) => {
+  const triggerNotify = (type: 'success' | 'error', msg: string) => {
     if (type === 'success') {
-      setSuccessMsg(msg || 'Operasi berhasil.');
+      setSuccessMsg(msg);
       setErrorMsg(null);
     } else {
-      setErrorMsg(msg || 'Terjadi kesalahan.');
+      setErrorMsg(msg);
       setSuccessMsg(null);
     }
     setTimeout(() => {
       setSuccessMsg(null);
       setErrorMsg(null);
-    }, 5000);
+    }, 4000);
   };
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nama || !noIdentitas) return;
-    setLoading(true);
-
-    try {
-      const res = await createMemberAction({
-        nama,
-        no_identitas: noIdentitas,
-        email: email || undefined,
-        no_telepon: noTelepon || undefined,
-        alamat: alamat || undefined,
-        jenis_anggota: jenisAnggota,
-      });
-
-      if (res && 'error' in res) {
-        triggerNotify('error', res.error);
-      } else {
-        triggerNotify('success', 'Anggota berhasil ditambahkan!');
-        setNama('');
-        setNoIdentitas('');
-        setEmail('');
-        setNoTelepon('');
-        setAlamat('');
-        setJenisAnggota('siswa');
-        setShowAddForm(false);
-        router.refresh();
-      }
-    } catch (err) {
-      triggerNotify('error', 'Gagal menambahkan anggota.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingMember || !nama || !noIdentitas) return;
-    setLoading(true);
-
-    try {
-      const res = await updateMemberAction(editingMember.id_anggota, {
-        nama,
-        no_identitas: noIdentitas,
-        email: email || undefined,
-        no_telepon: noTelepon || undefined,
-        alamat: alamat || undefined,
-        jenis_anggota: jenisAnggota,
-        status_aktif: statusAktif,
-      });
-
-      if (res && 'error' in res && res.error) {
-        triggerNotify('error', res.error as string);
-      } else {
-        triggerNotify('success', 'Data anggota berhasil diperbarui!');
-        setEditingMember(null);
-        router.refresh();
-      }
-    } catch (err) {
-      triggerNotify('error', 'Gagal memperbarui data anggota.');
-    } finally {
-      setLoading(false);
-    }
+  const resetForm = () => {
+    setNama('');
+    setNoIdentitas('');
+    setEmail('');
+    setNoTelepon('');
+    setAlamat('');
+    setJenisAnggota('siswa');
+    setStatusAktif(true);
   };
 
   const startEdit = (m: any) => {
@@ -133,10 +72,58 @@ export default function MembersClient({ members }: MembersClientProps) {
     setShowAddForm(false);
   };
 
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await createMemberAction({
+        nama,
+        no_identitas: noIdentitas,
+        email: email || undefined,
+        no_telepon: noTelepon || undefined,
+        alamat: alamat || undefined,
+        jenis_anggota: jenisAnggota,
+      });
+      triggerNotify('success', 'Anggota baru berhasil didaftarkan!');
+      setShowAddForm(false);
+      resetForm();
+      router.refresh();
+    } catch {
+      triggerNotify('error', 'Gagal mendaftarkan anggota. Nomor Identitas mungkin sudah terdaftar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    setLoading(true);
+    try {
+      await updateMemberAction(editingMember.id_anggota, {
+        nama,
+        no_identitas: noIdentitas,
+        email: email || undefined,
+        no_telepon: noTelepon || undefined,
+        alamat: alamat || undefined,
+        jenis_anggota: jenisAnggota,
+        status_aktif: statusAktif,
+      });
+      triggerNotify('success', 'Data anggota berhasil diperbarui!');
+      setEditingMember(null);
+      resetForm();
+      router.refresh();
+    } catch {
+      triggerNotify('error', 'Gagal memperbarui data anggota.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleStatusDirectly = async (m: any) => {
     setLoading(true);
     try {
-      const res = await updateMemberAction(m.id_anggota, {
+      await updateMemberAction(m.id_anggota, {
         nama: m.nama,
         no_identitas: m.no_identitas,
         email: m.email || undefined,
@@ -145,15 +132,10 @@ export default function MembersClient({ members }: MembersClientProps) {
         jenis_anggota: m.jenis_anggota,
         status_aktif: !m.status_aktif,
       });
-
-      if (res && 'error' in res && res.error) {
-        triggerNotify('error', res.error as string);
-      } else {
-        triggerNotify('success', `Anggota ${m.nama} berhasil ${!m.status_aktif ? 'diaktifkan' : 'dinonaktifkan'}.`);
-        router.refresh();
-      }
-    } catch (err) {
-      triggerNotify('error', 'Gagal mengubah status aktif anggota.');
+      triggerNotify('success', `Status anggota ${m.nama} berhasil diubah!`);
+      router.refresh();
+    } catch {
+      triggerNotify('error', 'Gagal mengubah status anggota.');
     } finally {
       setLoading(false);
     }
@@ -167,118 +149,113 @@ export default function MembersClient({ members }: MembersClientProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Page Title & Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Manajemen Keanggotaan</h1>
-          <p className="text-xs text-slate-400 mt-1">Daftarkan dan kelola data status keanggotaan perpustakaan.</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Manajemen Anggota</h1>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">Kelola data keanggotaan siswa, guru, dosen, dan umum.</p>
         </div>
         <button
           onClick={() => {
             setShowAddForm(true);
             setEditingMember(null);
-            setNama('');
-            setNoIdentitas('');
-            setEmail('');
-            setNoTelepon('');
-            setAlamat('');
-            setJenisAnggota('siswa');
+            resetForm();
           }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/10 transition-all cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
         >
           <UserPlus className="w-4 h-4" />
-          <span>Tambah Anggota Baru</span>
+          <span>Tambah Anggota</span>
         </button>
       </div>
 
-      {/* Alert Notifications */}
       {successMsg && (
-        <div className="p-4 bg-emerald-950/30 border border-emerald-900/50 rounded-xl flex items-center gap-3 text-emerald-400 text-sm">
-          <CheckCircle2 className="w-5 h-5 shrink-0" />
+        <div className="p-4 rounded-xl flex items-center gap-3 text-sm border bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-900/50 dark:text-emerald-400">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-4 bg-rose-950/30 border border-rose-900/50 rounded-xl flex items-center gap-3 text-rose-400 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <div className="p-4 rounded-xl flex items-center gap-3 text-sm border bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-900/50 dark:text-rose-400">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Add / Edit Form Modal representation */}
+      {/* Add / Edit Form Modal */}
       {(showAddForm || editingMember) && (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 relative max-w-3xl">
+        <div className="rounded-2xl p-6 sm:p-7 border relative max-w-3xl transition-all bg-white border-slate-200 shadow-sm dark:bg-slate-900/70 dark:border-slate-800">
           <button 
             onClick={() => {
               setShowAddForm(false);
               setEditingMember(null);
             }}
-            className="absolute right-4 top-4 p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+            className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
           
-          <h2 className="text-md font-bold text-slate-100 mb-4">
+          <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-4">
             {showAddForm ? 'Formulir Tambah Anggota' : `Formulir Edit Anggota: ${editingMember.nama}`}
           </h2>
 
           <form onSubmit={showAddForm ? handleAddSubmit : handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nama */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Nama Lengkap</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Nama Lengkap</label>
               <input
                 type="text"
                 placeholder="Masukkan nama lengkap..."
                 value={nama}
                 onChange={e => setNama(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
               />
             </div>
 
             {/* No. Identitas */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">No. Identitas (NISN / NIP / NIK)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">No. Identitas (NISN / NIP / NIK)</label>
               <input
                 type="text"
                 placeholder="Masukkan nomor identitas unik..."
                 value={noIdentitas}
                 onChange={e => setNoIdentitas(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
               />
             </div>
 
             {/* Email */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Email</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Email</label>
               <input
                 type="email"
                 placeholder="Alamat surel (opsional)..."
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
               />
             </div>
 
             {/* No. Telepon */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">No. Telepon / WA</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">No. Telepon / WA</label>
               <input
                 type="text"
                 placeholder="Nomor HP aktif..."
                 value={noTelepon}
                 onChange={e => setNoTelepon(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
               />
             </div>
 
             {/* Jenis Anggota */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Kategori Anggota</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Kategori Anggota</label>
               <select
                 value={jenisAnggota}
                 onChange={e => setJenisAnggota(e.target.value as any)}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-900 cursor-pointer"
               >
                 <option value="siswa">Siswa</option>
                 <option value="mahasiswa">Mahasiswa</option>
@@ -289,12 +266,12 @@ export default function MembersClient({ members }: MembersClientProps) {
 
             {/* Status Aktif (only edit) */}
             {editingMember && (
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Status Keaktifan</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Status Keaktifan</label>
                 <select
                   value={statusAktif ? 'aktif' : 'nonaktif'}
                   onChange={e => setStatusAktif(e.target.value === 'aktif')}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-900 cursor-pointer"
                 >
                   <option value="aktif">Aktif</option>
                   <option value="nonaktif">Nonaktif / Blokir</option>
@@ -303,32 +280,32 @@ export default function MembersClient({ members }: MembersClientProps) {
             )}
 
             {/* Alamat */}
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Alamat Domisili</label>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Alamat Domisili</label>
               <textarea
                 rows={2}
                 placeholder="Masukkan alamat tinggal saat ini..."
                 value={alamat}
                 onChange={e => setAlamat(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none resize-none"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900 resize-none"
               />
             </div>
 
-            <div className="md:col-span-2 flex justify-end gap-3 mt-2">
+            <div className="md:col-span-2 flex justify-end gap-3 mt-4">
               <button
                 type="button"
                 onClick={() => {
                   setShowAddForm(false);
                   setEditingMember(null);
                 }}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                className="px-5 py-2.5 rounded-xl border text-xs font-semibold transition-colors bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
               >
                 {loading ? 'Menyimpan...' : 'Simpan Data'}
               </button>
@@ -338,26 +315,25 @@ export default function MembersClient({ members }: MembersClientProps) {
       )}
 
       {/* Search & List table card */}
-      <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
+      <div className="rounded-2xl p-6 sm:p-7 border transition-all bg-white border-slate-200 shadow-xs dark:bg-slate-900/70 dark:border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-md font-bold text-slate-100">Daftar Anggota Terdaftar</h2>
-          {/* Search Input */}
+          <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Daftar Anggota Terdaftar</h2>
           <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Cari nama, identitas, email..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-xs text-slate-100 placeholder-slate-600 outline-none"
+              className="w-full pl-9 pr-4 py-2 rounded-xl text-xs outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
             />
           </div>
         </div>
 
         {/* Table data */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-slate-400">
-            <thead className="text-xs uppercase text-slate-500 border-b border-slate-800 bg-slate-950/20">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table className="w-full text-sm text-left text-slate-700 dark:text-slate-400">
+            <thead className="text-xs uppercase font-semibold border-b bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400">
               <tr>
                 <th scope="col" className="px-4 py-3">No. Identitas</th>
                 <th scope="col" className="px-4 py-3">Nama Lengkap</th>
@@ -368,46 +344,46 @@ export default function MembersClient({ members }: MembersClientProps) {
                 <th scope="col" className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-600 font-medium">Tidak ada data anggota ditemukan.</td>
+                  <td colSpan={7} className="text-center py-8 text-slate-500 dark:text-slate-400 font-medium">Tidak ada data anggota ditemukan.</td>
                 </tr>
               ) : (
                 filteredMembers.map(m => (
-                  <tr key={m.id_anggota} className="border-b border-slate-800/50 hover:bg-slate-800/25 transition-colors">
-                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-slate-200">{m.no_identitas}</td>
-                    <td className="px-4 py-3.5 font-medium text-slate-300">{m.nama}</td>
+                  <tr key={m.id_anggota} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
+                    <td className="px-4 py-3.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">{m.no_identitas}</td>
+                    <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-slate-100">{m.nama}</td>
                     <td className="px-4 py-3.5 text-xs">
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                      <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-500/20 dark:text-indigo-300">
                         {m.jenis_anggota}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs space-y-0.5">
-                      <p>{m.email || '-'}</p>
-                      <p className="text-slate-500">{m.no_telepon || '-'}</p>
-                      <p className="text-slate-500 max-w-xs truncate text-[11px]" title={m.alamat}>{m.alamat || '-'}</p>
+                      <p className="text-slate-900 dark:text-slate-300">{m.email || '-'}</p>
+                      <p className="text-slate-500 dark:text-slate-400">{m.no_telepon || '-'}</p>
+                      <p className="text-slate-400 dark:text-slate-500 max-w-xs truncate text-[11px]" title={m.alamat}>{m.alamat || '-'}</p>
                     </td>
-                    <td className="px-4 py-3.5 text-xs">{new Date(m.tanggal_daftar).toLocaleDateString('id-ID')}</td>
+                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-400">{new Date(m.tanggal_daftar).toLocaleDateString('id-ID')}</td>
                     <td className="px-4 py-3.5">
                       <button
                         onClick={() => toggleStatusDirectly(m)}
                         disabled={loading}
-                        className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 transition-all cursor-pointer ${
+                        className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 transition-all border cursor-pointer ${
                           m.status_aktif 
-                            ? 'bg-emerald-500/10 text-emerald-400 hover:bg-rose-500/10 hover:text-rose-400' 
-                            : 'bg-rose-500/10 text-rose-400 hover:bg-emerald-500/10 hover:text-emerald-400'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/25' 
+                            : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/25'
                         }`}
-                        title={m.status_aktif ? 'Klik untuk menonaktifkan' : 'Klik untuk mengaktifkan'}
+                        title={m.status_aktif ? 'Status: Aktif (Klik untuk menonaktifkan)' : 'Status: Nonaktif (Klik untuk mengaktifkan)'}
                       >
                         {m.status_aktif ? (
                           <>
-                            <UserCheck className="w-3.5 h-3.5" />
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             <span>Aktif</span>
                           </>
                         ) : (
                           <>
-                            <UserX className="w-3.5 h-3.5" />
+                            <UserX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                             <span>Nonaktif</span>
                           </>
                         )}
@@ -417,7 +393,7 @@ export default function MembersClient({ members }: MembersClientProps) {
                       <button
                         onClick={() => startEdit(m)}
                         disabled={loading}
-                        className="p-1 hover:bg-slate-800 rounded text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer"
+                        className="p-1.5 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-slate-800 transition-all cursor-pointer"
                         title="Edit data anggota"
                       >
                         <Edit className="w-4 h-4" />

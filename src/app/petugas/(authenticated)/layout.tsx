@@ -14,9 +14,9 @@ export default async function AuthenticatedLayout({
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden text-slate-100 font-sans">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
       <Sidebar user={user} />
-      <main className="flex-1 overflow-y-auto bg-slate-950 p-8">
+      <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 sm:p-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto space-y-6">
           {children}
         </div>

@@ -1,12 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { createBookAction, updateEksemplarKondisiStatus } from '@/lib/actions';
 import { 
-  BookPlus, Search, Edit3, Printer, Plus, Minus,
-  CheckCircle2, AlertCircle, X, BookOpen
+  BookOpen, 
+  Plus, 
+  Search, 
+  Printer, 
+  BookPlus, 
+  Minus, 
+  X, 
+  CheckCircle2, 
+  AlertCircle 
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createBookAction, updateEksemplarKondisiStatus } from '@/lib/actions';
 
 interface BooksClientProps {
   books: any[];
@@ -15,64 +22,72 @@ interface BooksClientProps {
 
 export default function BooksClient({ books, categories }: BooksClientProps) {
   const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBook, setSelectedBook] = useState<any | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<any | null>(null);
 
   // Form states
   const [judul, setJudul] = useState('');
-  const [idKategori, setIdKategori] = useState(0);
+  const [idKategori, setIdKategori] = useState<number>(categories[0]?.id_kategori || 0);
   const [pengarang, setPengarang] = useState('');
   const [penerbit, setPenerbit] = useState('');
-  const [tahunTerbit, setTahunTerbit] = useState('');
+  const [tahunTerbit, setTahunTerbit] = useState<number | ''>('');
   const [isbn, setIsbn] = useState('');
   const [nomorPanggil, setNomorPanggil] = useState('');
   const [deskripsi, setDeskripsi] = useState('');
-  const [barcodes, setBarcodes] = useState(['']);
+  const [barcodes, setBarcodes] = useState<string[]>(['']);
 
-  const triggerNotify = (type: 'success' | 'error', msg: string | undefined) => {
+  const triggerNotify = (type: 'success' | 'error', msg: string) => {
     if (type === 'success') {
-      setSuccessMsg(msg || 'Operasi berhasil.');
+      setSuccessMsg(msg);
       setErrorMsg(null);
     } else {
-      setErrorMsg(msg || 'Terjadi kesalahan.');
+      setErrorMsg(msg);
       setSuccessMsg(null);
     }
-    setTimeout(() => { setSuccessMsg(null); setErrorMsg(null); }, 5000);
+    setTimeout(() => {
+      setSuccessMsg(null);
+      setErrorMsg(null);
+    }, 4000);
   };
 
   const resetForm = () => {
-    setJudul(''); setIdKategori(0); setPengarang(''); setPenerbit('');
-    setTahunTerbit(''); setIsbn(''); setNomorPanggil(''); setDeskripsi('');
+    setJudul('');
+    setIdKategori(categories[0]?.id_kategori || 0);
+    setPengarang('');
+    setPenerbit('');
+    setTahunTerbit('');
+    setIsbn('');
+    setNomorPanggil('');
+    setDeskripsi('');
     setBarcodes(['']);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validBarcodes = barcodes.filter(b => b.trim() !== '');
-    if (!judul || !idKategori || validBarcodes.length === 0) return;
+    const validBarcodes = barcodes.map(b => b.trim()).filter(Boolean);
+    if (validBarcodes.length === 0) {
+      triggerNotify('error', 'Minimal harus mengisi 1 kode barcode eksemplar.');
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const res = await createBookAction({
+      await createBookAction({
         judul, id_kategori: idKategori, pengarang, penerbit,
-        tahun_terbit: tahunTerbit ? parseInt(tahunTerbit) : undefined,
-        isbn, nomor_panggil: nomorPanggil, deskripsi, barcodes: validBarcodes,
+        tahun_terbit: tahunTerbit ? Number(tahunTerbit) : undefined,
+        isbn, nomor_panggil: nomorPanggil, deskripsi,
+        barcodes: validBarcodes
       });
-
-      if (res && 'error' in res) {
-        triggerNotify('error', res.error);
-      } else {
-        triggerNotify('success', 'Bahan pustaka berhasil ditambahkan!');
-        resetForm();
-        setShowAddForm(false);
-        router.refresh();
-      }
+      triggerNotify('success', 'Bahan pustaka dan eksemplar berhasil didaftarkan!');
+      setShowAddForm(false);
+      resetForm();
+      router.refresh();
     } catch {
-      triggerNotify('error', 'Gagal menambahkan buku.');
+      triggerNotify('error', 'Terjadi kesalahan sistem saat menyimpan buku.');
     } finally {
       setLoading(false);
     }
@@ -100,14 +115,15 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Page Title & Add Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Manajemen Koleksi Buku</h1>
-          <p className="text-xs text-slate-400 mt-1">Kelola katalog bahan pustaka, eksemplar fisik, dan label barcode.</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Manajemen Koleksi Buku</h1>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">Kelola katalog bahan pustaka, eksemplar fisik, dan label barcode.</p>
         </div>
         <button
           onClick={() => { setShowAddForm(true); setSelectedBook(null); resetForm(); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/10 transition-all cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
         >
           <BookPlus className="w-4 h-4" />
           <span>Tambah Buku Baru</span>
@@ -115,73 +131,134 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
       </div>
 
       {successMsg && (
-        <div className="p-4 bg-emerald-950/30 border border-emerald-900/50 rounded-xl flex items-center gap-3 text-emerald-400 text-sm">
-          <CheckCircle2 className="w-5 h-5 shrink-0" /><span>{successMsg}</span>
+        <div className="p-4 rounded-xl flex items-center gap-3 text-sm border bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-900/50 dark:text-emerald-400">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-4 bg-rose-950/30 border border-rose-900/50 rounded-xl flex items-center gap-3 text-rose-400 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" /><span>{errorMsg}</span>
+        <div className="p-4 rounded-xl flex items-center gap-3 text-sm border bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-900/50 dark:text-rose-400">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
+          <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Add Book Form */}
       {showAddForm && (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 relative max-w-4xl">
-          <button onClick={() => setShowAddForm(false)} className="absolute right-4 top-4 p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">
+        <div className="rounded-2xl p-6 sm:p-7 border relative max-w-4xl transition-all bg-white border-slate-200 shadow-sm dark:bg-slate-900/70 dark:border-slate-800">
+          <button 
+            onClick={() => setShowAddForm(false)} 
+            className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
             <X className="w-5 h-5" />
           </button>
-          <h2 className="text-md font-bold text-slate-100 mb-5">Formulir Tambah Bahan Pustaka</h2>
+          <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-5">Formulir Tambah Bahan Pustaka</h2>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Judul Buku / Bahan Pustaka *</label>
-              <input type="text" placeholder="Masukkan judul lengkap..." value={judul} onChange={e => setJudul(e.target.value)} required className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"/>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Judul Buku / Bahan Pustaka *</label>
+              <input 
+                type="text" 
+                placeholder="Masukkan judul lengkap..." 
+                value={judul} 
+                onChange={e => setJudul(e.target.value)} 
+                required 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Kategori / Klasifikasi *</label>
-              <select value={idKategori} onChange={e => setIdKategori(Number(e.target.value))} required className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Kategori / Klasifikasi *</label>
+              <select 
+                value={idKategori} 
+                onChange={e => setIdKategori(Number(e.target.value))} 
+                required 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-900 cursor-pointer"
+              >
                 <option value={0}>-- Pilih Kategori --</option>
                 {categories.map(c => <option key={c.id_kategori} value={c.id_kategori}>({c.no_klasifikasi}) {c.nama_kategori}</option>)}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Nomor Panggil</label>
-              <input type="text" placeholder="Contoh: 005.1 RAF d (awali REF untuk referensi)..." value={nomorPanggil} onChange={e => setNomorPanggil(e.target.value)} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"/>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Nomor Panggil</label>
+              <input 
+                type="text" 
+                placeholder="Contoh: 005.1 RAF d (awali REF untuk referensi)..." 
+                value={nomorPanggil} 
+                onChange={e => setNomorPanggil(e.target.value)} 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Pengarang</label>
-              <input type="text" placeholder="Nama pengarang..." value={pengarang} onChange={e => setPengarang(e.target.value)} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"/>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Pengarang</label>
+              <input 
+                type="text" 
+                placeholder="Nama pengarang..." 
+                value={pengarang} 
+                onChange={e => setPengarang(e.target.value)} 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Penerbit</label>
-              <input type="text" placeholder="Nama penerbit..." value={penerbit} onChange={e => setPenerbit(e.target.value)} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"/>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Penerbit</label>
+              <input 
+                type="text" 
+                placeholder="Nama penerbit..." 
+                value={penerbit} 
+                onChange={e => setPenerbit(e.target.value)} 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Tahun Terbit</label>
-              <input type="number" placeholder="Contoh: 2024" value={tahunTerbit} onChange={e => setTahunTerbit(e.target.value)} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"/>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Tahun Terbit</label>
+              <input 
+                type="number" 
+                placeholder="Contoh: 2024" 
+                value={tahunTerbit} 
+                onChange={e => setTahunTerbit(e.target.value === '' ? '' : Number(e.target.value))} 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">ISBN</label>
-              <input type="text" placeholder="Nomor ISBN (opsional)..." value={isbn} onChange={e => setIsbn(e.target.value)} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none"/>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">ISBN</label>
+              <input 
+                type="text" 
+                placeholder="Nomor ISBN (opsional)..." 
+                value={isbn} 
+                onChange={e => setIsbn(e.target.value)} 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+              />
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Deskripsi / Sinopsis</label>
-              <textarea rows={2} placeholder="Sinopsis atau keterangan buku..." value={deskripsi} onChange={e => setDeskripsi(e.target.value)} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-sm text-slate-100 outline-none resize-none"/>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">Deskripsi / Sinopsis</label>
+              <textarea 
+                rows={2} 
+                placeholder="Sinopsis atau keterangan buku..." 
+                value={deskripsi} 
+                onChange={e => setDeskripsi(e.target.value)} 
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900 resize-none"
+              />
             </div>
 
             {/* Barcodes section */}
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 md:col-span-2 pt-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
                   Kode Barcode Eksemplar Fisik *
-                  <span className="ml-2 text-indigo-400 normal-case font-normal">({barcodes.filter(b => b.trim()).length} eksemplar)</span>
+                  <span className="ml-2 text-indigo-600 dark:text-indigo-400 normal-case font-semibold">({barcodes.filter(b => b.trim()).length} eksemplar)</span>
                 </label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setBarcodes([...barcodes, ''])} className="text-xs flex items-center gap-1 px-2.5 py-1 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-lg hover:bg-indigo-600/20 transition-all cursor-pointer">
+                  <button 
+                    type="button" 
+                    onClick={() => setBarcodes([...barcodes, ''])} 
+                    className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all border font-semibold bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-600/10 dark:border-indigo-500/20 dark:text-indigo-400 dark:hover:bg-indigo-600/20 cursor-pointer"
+                  >
                     <Plus className="w-3.5 h-3.5"/> Tambah Eksemplar
                   </button>
                   {barcodes.length > 1 && (
-                    <button type="button" onClick={() => setBarcodes(barcodes.slice(0, -1))} className="text-xs flex items-center gap-1 px-2.5 py-1 bg-rose-600/10 border border-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-600/20 transition-all cursor-pointer">
+                    <button 
+                      type="button" 
+                      onClick={() => setBarcodes(barcodes.slice(0, -1))} 
+                      className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all border font-semibold bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 dark:bg-rose-600/10 dark:border-rose-500/20 dark:text-rose-400 dark:hover:bg-rose-600/20 cursor-pointer"
+                    >
                       <Minus className="w-3.5 h-3.5"/> Hapus
                     </button>
                   )}
@@ -196,15 +273,25 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
                     value={bc}
                     onChange={e => { const nb = [...barcodes]; nb[i] = e.target.value; setBarcodes(nb); }}
                     required
-                    className="px-3 py-2 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-xs text-slate-100 font-mono outline-none"
+                    className="px-3 py-2 rounded-xl text-xs font-mono outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
                   />
                 ))}
               </div>
             </div>
 
-            <div className="md:col-span-2 flex justify-end gap-3 mt-2">
-              <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-colors cursor-pointer">Batal</button>
-              <button type="submit" disabled={loading} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white font-semibold text-xs rounded-lg transition-all cursor-pointer">
+            <div className="md:col-span-2 flex justify-end gap-3 mt-4">
+              <button 
+                type="button" 
+                onClick={() => setShowAddForm(false)} 
+                className="px-5 py-2.5 rounded-xl border text-xs font-semibold transition-colors bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 dark:border-slate-700 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button 
+                type="submit" 
+                disabled={loading} 
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              >
                 {loading ? 'Menyimpan...' : 'Simpan Buku & Eksemplar'}
               </button>
             </div>
@@ -214,46 +301,48 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
 
       {/* Book Detail Drawer/Modal */}
       {selectedBook && (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 relative max-w-4xl">
-          <button onClick={() => setSelectedBook(null)} className="absolute right-4 top-4 p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 cursor-pointer">
+        <div className="rounded-2xl p-6 sm:p-7 border relative max-w-4xl transition-all bg-white border-slate-200 shadow-sm dark:bg-slate-900/80 dark:border-slate-800">
+          <button 
+            onClick={() => setSelectedBook(null)} 
+            className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-500 dark:hover:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+          >
             <X className="w-5 h-5"/>
           </button>
           <div className="mb-4">
-            <h2 className="font-bold text-slate-100">{selectedBook.judul}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{selectedBook.pengarang} &bull; {selectedBook.penerbit} &bull; {selectedBook.tahun_terbit}</p>
+            <h2 className="font-extrabold text-lg text-slate-900 dark:text-slate-100">{selectedBook.judul}</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{selectedBook.pengarang} &bull; {selectedBook.penerbit} &bull; {selectedBook.tahun_terbit}</p>
           </div>
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Detail Eksemplar Fisik</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-slate-400">
-                <thead className="text-[10px] uppercase text-slate-600 border-b border-slate-800">
+            <h3 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Detail Eksemplar Fisik</h3>
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-xs text-left text-slate-700 dark:text-slate-400">
+                <thead className="text-[10px] uppercase font-bold border-b bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400">
                   <tr>
-                    <th className="px-3 py-2">Kode Barcode</th>
-                    <th className="px-3 py-2">Kondisi</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Lokasi Rak</th>
-                    <th className="px-3 py-2 text-right">Aksi</th>
+                    <th className="px-3.5 py-2.5">Kode Barcode</th>
+                    <th className="px-3.5 py-2.5">Kondisi</th>
+                    <th className="px-3.5 py-2.5">Status</th>
+                    <th className="px-3.5 py-2.5">Lokasi Rak</th>
+                    <th className="px-3.5 py-2.5 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                   {selectedBook.eksemplar.map((eks: any) => (
-                    <tr key={eks.id_eksemplar} className="border-b border-slate-800/50">
-                      <td className="px-3 py-2 font-mono font-bold text-slate-200">{eks.kode_barcode}</td>
-                      <td className="px-3 py-2">
+                    <tr key={eks.id_eksemplar} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
+                      <td className="px-3.5 py-2.5 font-mono font-bold text-slate-900 dark:text-slate-200">{eks.kode_barcode}</td>
+                      <td className="px-3.5 py-2.5">
                         <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          eks.kondisi === 'baik' ? 'bg-emerald-500/10 text-emerald-400' :
-                          eks.kondisi === 'rusak_ringan' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
+                          eks.kondisi === 'baik' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
+                          eks.kondisi === 'rusak_ringan' ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
                         }`}>{eks.kondisi}</span>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3.5 py-2.5">
                         <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          eks.status === 'tersedia' ? 'bg-emerald-500/10 text-emerald-400' :
-                          eks.status === 'dipinjam' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
+                          eks.status === 'tersedia' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' :
+                          eks.status === 'dipinjam' ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
                         }`}>{eks.status}</span>
                       </td>
-                      <td className="px-3 py-2 text-slate-500">{eks.lokasi_rak || '-'}</td>
-                      <td className="px-3 py-2 text-right">
-                        {/* Print barcode label */}
+                      <td className="px-3.5 py-2.5 text-slate-500 dark:text-slate-400">{eks.lokasi_rak || '-'}</td>
+                      <td className="px-3.5 py-2.5 text-right">
                         <button
                           onClick={() => {
                             const w = window.open('', '_blank');
@@ -275,7 +364,7 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
                               w.document.close();
                             }
                           }}
-                          className="p-1 hover:bg-slate-800 rounded text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer"
+                          className="p-1.5 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-slate-800 transition-all cursor-pointer"
                           title="Cetak label barcode"
                         >
                           <Printer className="w-3.5 h-3.5"/>
@@ -291,53 +380,61 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
       )}
 
       {/* Search & Book List */}
-      <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
+      <div className="rounded-2xl p-6 sm:p-7 border transition-all bg-white border-slate-200 shadow-xs dark:bg-slate-900/70 dark:border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-md font-bold text-slate-100">Katalog Bahan Pustaka (OPAC)</h2>
+          <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Katalog Bahan Pustaka (OPAC)</h2>
           <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500"/>
-            <input type="text" placeholder="Cari judul, pengarang, ISBN, nomor panggil..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg text-xs text-slate-100 placeholder-slate-600 outline-none"/>
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400 dark:text-slate-500"/>
+            <input 
+              type="text" 
+              placeholder="Cari judul, pengarang, ISBN..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)} 
+              className="w-full pl-9 pr-4 py-2 rounded-xl text-xs outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+            />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-slate-400">
-            <thead className="text-xs uppercase text-slate-500 border-b border-slate-800 bg-slate-950/20">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table className="w-full text-sm text-left text-slate-700 dark:text-slate-400">
+            <thead className="text-xs uppercase font-semibold border-b bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3">No. Panggil</th>
                 <th className="px-4 py-3">Judul & Pengarang</th>
                 <th className="px-4 py-3">Kategori</th>
                 <th className="px-4 py-3">ISBN</th>
-                <th className="px-4 py-3">Eksemplar</th>
-                <th className="px-4 py-3">Tersedia</th>
+                <th className="px-4 py-3 text-center">Eksemplar</th>
+                <th className="px-4 py-3 text-center">Tersedia</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-600 font-medium">Tidak ada bahan pustaka ditemukan.</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-slate-500 dark:text-slate-400 font-medium">Tidak ada bahan pustaka ditemukan.</td></tr>
               ) : (
                 filtered.map(b => {
                   const available = b.eksemplar.filter((e: any) => e.status === 'tersedia').length;
                   return (
-                    <tr key={b.id_bahan} className="border-b border-slate-800/50 hover:bg-slate-800/25 transition-colors">
-                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-indigo-400">{b.nomor_panggil || '-'}</td>
+                    <tr key={b.id_bahan} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
+                      <td className="px-4 py-3.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">{b.nomor_panggil || '-'}</td>
                       <td className="px-4 py-3.5">
-                        <p className="font-semibold text-slate-200 leading-tight">{b.judul}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{b.pengarang || 'Tanpa Pengarang'} &bull; {b.penerbit || '-'} &bull; {b.tahun_terbit || '-'}</p>
+                        <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{b.judul}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{b.pengarang || 'Tanpa Pengarang'} &bull; {b.penerbit || '-'} &bull; {b.tahun_terbit || '-'}</p>
                       </td>
                       <td className="px-4 py-3.5 text-xs">
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{b.kategori?.nama_kategori || '-'}</span>
+                        <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-500/20 dark:text-indigo-300">
+                          {b.kategori?.nama_kategori || '-'}
+                        </span>
                       </td>
-                      <td className="px-4 py-3.5 text-xs font-mono">{b.isbn || '-'}</td>
-                      <td className="px-4 py-3.5 text-center font-bold text-slate-300">{b.eksemplar.length}</td>
+                      <td className="px-4 py-3.5 text-xs font-mono text-slate-600 dark:text-slate-400">{b.isbn || '-'}</td>
+                      <td className="px-4 py-3.5 text-center font-bold text-slate-900 dark:text-slate-200">{b.eksemplar.length}</td>
                       <td className="px-4 py-3.5 text-center">
-                        <span className={`font-bold text-sm ${available > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{available}</span>
+                        <span className={`font-bold text-sm ${available > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{available}</span>
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <button
                           onClick={() => setSelectedBook(selectedBook?.id_bahan === b.id_bahan ? null : b)}
-                          className="p-1.5 hover:bg-slate-800 rounded text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer"
+                          className="p-1.5 rounded-lg text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-slate-800 transition-all cursor-pointer"
                           title="Lihat detail eksemplar"
                         >
                           <BookOpen className="w-4 h-4"/>
