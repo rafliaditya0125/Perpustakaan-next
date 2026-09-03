@@ -1,5 +1,6 @@
 import { memberLoginAction } from '@/lib/actions';
-import { BookMarked, User, Lock, AlertTriangle } from 'lucide-react';
+import { BookMarked, User, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function LoginPage({
   searchParams,
@@ -18,12 +19,23 @@ export default async function LoginPage({
       {/* Glassmorphism Login Container */}
       <div className="w-full max-w-md bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl relative z-10">
         
+        {/* Back to Home Link */}
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-slate-200 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Kembali ke Beranda</span>
+          </Link>
+        </div>
+
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="p-3.5 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl text-indigo-400 mb-4 shadow-inner shadow-indigo-500/10">
             <BookMarked className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100">E-Perpustakaan</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-100">Login Anggota</h1>
           <p className="text-xs text-slate-400 mt-1">Sistem Otomasi Operasional & Sirkulasi Perpustakaan</p>
         </div>
 
@@ -69,7 +81,7 @@ export default async function LoginPage({
               />
             </div>
           </div>
-          <p className="text-xs text-slate-500">Masuk anggota hanya dengan nomor identitas. Jika belum terdaftar, daftar keanggotaan dahulu.</p>
+          <p className="text-xs text-slate-500">Masuk anggota hanya dengan nomor identitas. Jika belum terdaftar, silakan daftar keanggotaan di beranda.</p>
 
           {/* Error Message */}
           {errorMsg && (
@@ -89,13 +101,10 @@ export default async function LoginPage({
         </form>
 
         {/* Footer info credentials */}
-        <div className="mt-8 pt-6 border-t border-slate-800/80 text-[11px] text-slate-500 flex flex-col gap-1 items-center">
-          <p>Sistem ini dilindungi enkripsi standar keamanan perpustakaan.</p>
-          <p className="text-slate-600 mt-2 font-mono">
+        <div className="mt-8 pt-6 border-t border-slate-800/80 text-[11px] text-slate-500 flex flex-col gap-2 items-center text-center">
+          <p>Belum memiliki kartu anggota? <Link href="/#register" className="text-indigo-400 hover:underline font-medium">Daftar sekarang di sini</Link></p>
+          <p className="text-slate-600 font-mono">
             Demo anggota: gunakan nomor identitas anggota terdaftar.
-          </p>
-          <p className="mt-2 text-xs text-slate-400">
-            Petugas? <a href="/petugas/login" className="text-indigo-300 underline">Masuk di halaman petugas</a>
           </p>
         </div>
 
