@@ -14,6 +14,9 @@ import {
   LogIn,
   Menu,
   X,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface PublicHomeClientProps {
@@ -33,6 +36,10 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
   const [noTelepon, setNoTelepon] = useState('');
   const [alamat, setAlamat] = useState('');
   const [jenisAnggota, setJenisAnggota] = useState<'siswa' | 'mahasiswa' | 'guru_dosen' | 'umum'>('siswa');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const availableCount = useMemo(
     () =>
@@ -68,6 +75,8 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
     setNoTelepon('');
     setAlamat('');
     setJenisAnggota('siswa');
+    setPassword('');
+    setConfirmPassword('');
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -77,6 +86,21 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
 
     if (!nama.trim() || !noIdentitas.trim()) {
       setErrorMsg('Nama dan nomor identitas wajib diisi.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMsg('Password wajib diisi.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg('Password minimal 6 karakter.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg('Konfirmasi password tidak cocok.');
       return;
     }
 
@@ -92,6 +116,8 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
           no_telepon: noTelepon.trim() || undefined,
           alamat: alamat.trim() || undefined,
           jenis_anggota: jenisAnggota,
+          password,
+          confirmPassword,
         }),
       });
 
@@ -407,6 +433,52 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
                       <option value="umum">Umum</option>
                     </select>
                   </label>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                      <span>Password *</span>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Minimal 6 karakter"
+                          required
+                          className="w-full rounded-2xl pl-4 pr-11 py-3 text-sm transition outline-none border bg-slate-50/80 border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950/80 dark:border-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-slate-900 dark:focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                      <span>Konfirmasi Password *</span>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Ulangi password"
+                          required
+                          className="w-full rounded-2xl pl-4 pr-11 py-3 text-sm transition outline-none border bg-slate-50/80 border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950/80 dark:border-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-slate-900 dark:focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Tampilkan konfirmasi password'}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
                   <button
                     type="submit"
