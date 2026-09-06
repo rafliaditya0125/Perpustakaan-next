@@ -3,15 +3,44 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('session-user');
+  const mfaPending = request.cookies.get('mfa-pending');
   const { pathname } = request.nextUrl;
 
-  const isPetugasProtectedPath = pathname.startsWith('/petugas/') && pathname !== '/petugas/login';
+  const isPetugasProtectedPath = pathname.startsWith('/petugas/') && pathname !== '/petugas/login' && pathname !== '/petugas/login/mfa';
   const isAnggotaProtectedPath = pathname.startsWith('/anggota');
 
   if (isPetugasProtectedPath || isAnggotaProtectedPath) {
     if (!session) {
       const url = request.nextUrl.clone();
       url.pathname = pathname.startsWith('/petugas/') ? '/petugas/login' : '/login';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Petugas MFA route protection
+  if (pathname === '/petugas/login/mfa') {
+    if (session) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/petugas/dashboard';
+      return NextResponse.redirect(url);
+    }
+    if (!mfaPending) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/petugas/login';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Anggota MFA route protection
+  if (pathname === '/login/mfa') {
+    if (session) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/anggota';
+      return NextResponse.redirect(url);
+    }
+    if (!mfaPending) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
       return NextResponse.redirect(url);
     }
   }
@@ -37,8 +66,6 @@ export function middleware(request: NextRequest) {
       // ignore parse error and allow petugas login
     }
   }
-
-  return NextResponse.next();
 
   return NextResponse.next();
 }
