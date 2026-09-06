@@ -65,24 +65,24 @@ export default async function LoginPage({
           {/* Password Field */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider block text-slate-700 dark:text-slate-300" htmlFor="password">
-              Password (Tidak Diperlukan)
+              Password
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-600">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
                 <Lock className="w-4 h-4" />
               </span>
               <input
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Login tanpa password..."
-                disabled
-                className="w-full pl-10 pr-4 py-3 rounded-2xl text-sm border bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-950/40 dark:border-slate-800 dark:text-slate-500"
+                placeholder="Masukkan password akun..."
+                required
+                className="w-full pl-10 pr-4 py-3 rounded-2xl text-sm transition outline-none border bg-slate-50/80 border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950/80 dark:border-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-slate-900 dark:focus:border-indigo-500"
               />
             </div>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Masuk anggota cukup dengan memasukkan nomor identitas terdaftar.
+            Masukkan nomor identitas dan password terdaftar untuk mengakses portal anggota.
           </p>
 
           {/* Error Message */}

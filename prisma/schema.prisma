@@ -103,6 +103,7 @@ model anggota {
   no_telepon           String?                @db.VarChar(20)
   alamat               String?                @db.VarChar(255)
   jenis_anggota        JenisAnggota
+  password_hash        String?                @db.VarChar(255)
   status_aktif         Boolean                @default(true)
   tanggal_daftar       DateTime               @db.Date
   transaksi_peminjaman transaksi_peminjaman[]
@@ -259,4 +260,12 @@ model parameter_kebijakan {
   nama_parameter String @unique @db.VarChar(100)
   nilai          String @db.VarChar(50)
   keterangan     String? @db.VarChar(255)
+}
+
+model migrations {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique @db.VarChar(255)
+  applied_at DateTime @default(now())
+
+  @@map("_migrations")
 }

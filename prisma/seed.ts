@@ -204,6 +204,7 @@ async function main() {
     {
       nama: 'Rafli Aditya',
       no_identitas: 'NISN001',
+      password_hash: hashPassword('NISN001'),
       email: 'rafli@perpustakaan.my.id',
       no_telepon: '081234567890',
       alamat: 'Jl. Merdeka No. 17, Jakarta',
@@ -214,6 +215,7 @@ async function main() {
     {
       nama: 'Jane Doe',
       no_identitas: 'NIK320101010190',
+      password_hash: hashPassword('NIK320101010190'),
       email: 'jane.doe@gmail.com',
       no_telepon: '08987654321',
       alamat: 'Apartemen Green Pramuka Tower B-10',
@@ -224,6 +226,7 @@ async function main() {
     {
       nama: 'Prof. Dr. Ir. Budi Santoso',
       no_identitas: 'NIP198005122005011002',
+      password_hash: hashPassword('NIP198005122005011002'),
       email: 'budi.santoso@univ.ac.id',
       no_telepon: '081122334455',
       alamat: 'Perumahan Dosen UI Block C',

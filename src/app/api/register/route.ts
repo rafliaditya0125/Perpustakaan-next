@@ -1,5 +1,10 @@
 import prisma from '@/lib/db';
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+function hashPassword(password: string) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
 
 export async function POST(request: Request) {
   try {
@@ -11,10 +16,24 @@ export async function POST(request: Request) {
       no_telepon,
       alamat,
       jenis_anggota,
+      password,
+      confirmPassword,
     } = body ?? {};
 
     if (!nama || !no_identitas || !jenis_anggota) {
       return NextResponse.json({ error: 'Nama, nomor identitas, dan jenis anggota wajib diisi.' }, { status: 400 });
+    }
+
+    if (!password) {
+      return NextResponse.json({ error: 'Password wajib diisi.' }, { status: 400 });
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Password minimal 6 karakter.' }, { status: 400 });
+    }
+
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return NextResponse.json({ error: 'Konfirmasi password tidak cocok.' }, { status: 400 });
     }
 
     const allowedTypes = ['siswa', 'mahasiswa', 'guru_dosen', 'umum'];
@@ -38,6 +57,7 @@ export async function POST(request: Request) {
         no_telepon: no_telepon || null,
         alamat: alamat || null,
         jenis_anggota,
+        password_hash: hashPassword(password),
         tanggal_daftar: new Date(),
       },
     });

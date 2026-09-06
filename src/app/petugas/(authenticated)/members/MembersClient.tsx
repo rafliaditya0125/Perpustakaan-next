@@ -9,7 +9,10 @@ import {
   Edit, 
   X, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createMemberAction, updateMemberAction } from '@/lib/actions';
@@ -35,6 +38,10 @@ export default function MembersClient({ members }: MembersClientProps) {
   const [alamat, setAlamat] = useState('');
   const [jenisAnggota, setJenisAnggota] = useState<'siswa' | 'mahasiswa' | 'guru_dosen' | 'umum'>('siswa');
   const [statusAktif, setStatusAktif] = useState(true);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const triggerNotify = (type: 'success' | 'error', msg: string) => {
     if (type === 'success') {
@@ -58,6 +65,10 @@ export default function MembersClient({ members }: MembersClientProps) {
     setAlamat('');
     setJenisAnggota('siswa');
     setStatusAktif(true);
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const startEdit = (m: any) => {
@@ -69,21 +80,42 @@ export default function MembersClient({ members }: MembersClientProps) {
     setAlamat(m.alamat || '');
     setJenisAnggota(m.jenis_anggota);
     setStatusAktif(m.status_aktif);
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setShowAddForm(false);
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!password) {
+      triggerNotify('error', 'Password wajib diisi.');
+      return;
+    }
+    if (password.length < 6) {
+      triggerNotify('error', 'Password minimal 6 karakter.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      triggerNotify('error', 'Konfirmasi password tidak cocok.');
+      return;
+    }
     setLoading(true);
     try {
-      await createMemberAction({
+      const res = await createMemberAction({
         nama,
         no_identitas: noIdentitas,
         email: email || undefined,
         no_telepon: noTelepon || undefined,
         alamat: alamat || undefined,
         jenis_anggota: jenisAnggota,
+        password,
       });
+      if (res && 'error' in res && res.error) {
+        triggerNotify('error', res.error);
+        return;
+      }
       triggerNotify('success', 'Anggota baru berhasil didaftarkan!');
       setShowAddForm(false);
       resetForm();
@@ -98,9 +130,19 @@ export default function MembersClient({ members }: MembersClientProps) {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember) return;
+    if (password) {
+      if (password.length < 6) {
+        triggerNotify('error', 'Password baru minimal 6 karakter.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        triggerNotify('error', 'Konfirmasi password baru tidak cocok.');
+        return;
+      }
+    }
     setLoading(true);
     try {
-      await updateMemberAction(editingMember.id_anggota, {
+      const res = await updateMemberAction(editingMember.id_anggota, {
         nama,
         no_identitas: noIdentitas,
         email: email || undefined,
@@ -108,7 +150,12 @@ export default function MembersClient({ members }: MembersClientProps) {
         alamat: alamat || undefined,
         jenis_anggota: jenisAnggota,
         status_aktif: statusAktif,
+        password: password || undefined,
       });
+      if (res && 'error' in res && res.error) {
+        triggerNotify('error', res.error);
+        return;
+      }
       triggerNotify('success', 'Data anggota berhasil diperbarui!');
       setEditingMember(null);
       resetForm();
@@ -278,6 +325,55 @@ export default function MembersClient({ members }: MembersClientProps) {
                 </select>
               </div>
             )}
+
+            {/* Password Fields */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
+                {showAddForm ? 'Password Akun *' : 'Password Baru (opsional)'}
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={showAddForm ? 'Minimal 6 karakter...' : 'Kosongkan jika tidak diubah...'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required={showAddForm}
+                  className="w-full pl-4 pr-11 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
+                {showAddForm ? 'Konfirmasi Password *' : 'Konfirmasi Password Baru'}
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder={showAddForm ? 'Ulangi password...' : 'Ulangi jika mengganti password...'}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required={showAddForm}
+                  className="w-full pl-4 pr-11 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Tampilkan konfirmasi password'}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition cursor-pointer"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
             {/* Alamat */}
             <div className="space-y-1.5 md:col-span-2">

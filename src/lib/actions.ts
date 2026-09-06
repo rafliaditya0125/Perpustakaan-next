@@ -87,9 +87,10 @@ export async function memberLoginAction(formData: FormData) {
   }
 
   const noIdentitas = formData.get('no_identitas') as string;
+  const password = formData.get('password') as string;
 
-  if (!noIdentitas) {
-    redirect('/login?error=' + encodeURIComponent('No. identitas wajib diisi'));
+  if (!noIdentitas || !password) {
+    redirect('/login?error=' + encodeURIComponent('No. identitas dan password wajib diisi'));
   }
 
   try {
@@ -99,6 +100,15 @@ export async function memberLoginAction(formData: FormData) {
 
     if (!member || !member.status_aktif) {
       redirect('/login?error=' + encodeURIComponent('Anggota tidak ditemukan atau tidak aktif'));
+    }
+
+    if (!member.password_hash) {
+      redirect('/login?error=' + encodeURIComponent('Akun belum memiliki password. Silakan hubungi petugas perpustakaan.'));
+    }
+
+    const hashedPassword = hashPassword(password);
+    if (member.password_hash !== hashedPassword) {
+      redirect('/login?error=' + encodeURIComponent('Password salah'));
     }
 
     const sessionData = JSON.stringify({
@@ -115,7 +125,10 @@ export async function memberLoginAction(formData: FormData) {
       maxAge: 60 * 60 * 8,
       path: '/',
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw err;
+    }
     console.error('Member login error:', err);
     redirect('/login?error=' + encodeURIComponent('Terjadi kesalahan sistem saat login anggota'));
   }
@@ -169,9 +182,14 @@ export async function createMemberAction(data: {
   no_telepon?: string;
   alamat?: string;
   jenis_anggota: 'siswa' | 'mahasiswa' | 'guru_dosen' | 'umum';
+  password: string;
 }) {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
+
+  if (!data.password || data.password.length < 6) {
+    return { error: 'Password minimal 6 karakter.' };
+  }
 
   const existing = await prisma.anggota.findUnique({
     where: { no_identitas: data.no_identitas },
@@ -180,9 +198,11 @@ export async function createMemberAction(data: {
     return { error: 'Nomor identitas sudah terdaftar.' };
   }
 
+  const { password, ...memberData } = data;
   const newMember = await prisma.anggota.create({
     data: {
-      ...data,
+      ...memberData,
+      password_hash: hashPassword(password),
       tanggal_daftar: new Date(),
     },
   });
@@ -199,13 +219,24 @@ export async function updateMemberAction(id: number, data: {
   alamat?: string;
   jenis_anggota: 'siswa' | 'mahasiswa' | 'guru_dosen' | 'umum';
   status_aktif: boolean;
+  password?: string;
 }) {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
+  const { password, ...memberData } = data;
+  const updatePayload: any = { ...memberData };
+
+  if (password && password.trim().length > 0) {
+    if (password.length < 6) {
+      return { error: 'Password baru minimal 6 karakter.' };
+    }
+    updatePayload.password_hash = hashPassword(password);
+  }
+
   await prisma.anggota.update({
     where: { id_anggota: id },
-    data,
+    data: updatePayload,
   });
 
   await logAktivitas(user.id_pengguna, `Mengubah data anggota: ${data.nama}`, 'anggota');
