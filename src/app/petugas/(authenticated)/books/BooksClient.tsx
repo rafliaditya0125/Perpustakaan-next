@@ -10,10 +10,74 @@ import {
   Minus, 
   X, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Upload,
+  Trash2,
+  Sparkles,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createBookAction, updateEksemplarKondisiStatus } from '@/lib/actions';
+
+// Client-side image compression using HTML5 Canvas to WebP
+async function compressImage(
+  file: File,
+  maxWidth = 600,
+  maxHeight = 800,
+  quality = 0.8
+): Promise<{ dataUrl: string; originalSize: number; compressedSize: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context tidak tersedia'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        let dataUrl = canvas.toDataURL('image/webp', quality);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
+        const compressedSize = Math.round((base64Length * 3) / 4);
+
+        resolve({
+          dataUrl,
+          originalSize: file.size,
+          compressedSize,
+        });
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
 
 interface BooksClientProps {
   books: any[];
@@ -38,6 +102,9 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
   const [isbn, setIsbn] = useState('');
   const [nomorPanggil, setNomorPanggil] = useState('');
   const [deskripsi, setDeskripsi] = useState('');
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [coverStats, setCoverStats] = useState<{ orig: string; comp: string; ratio: string } | null>(null);
+  const [compressing, setCompressing] = useState(false);
   const [barcodes, setBarcodes] = useState<string[]>(['']);
 
   const triggerNotify = (type: 'success' | 'error', msg: string) => {
@@ -54,6 +121,40 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
     }, 4000);
   };
 
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      triggerNotify('error', 'Format file harus berupa gambar (JPG, PNG, WebP).');
+      return;
+    }
+
+    setCompressing(true);
+    try {
+      const res = await compressImage(file, 600, 800, 0.82);
+      setCoverImage(res.dataUrl);
+
+      const origKB = (res.originalSize / 1024).toFixed(1);
+      const compKB = (res.compressedSize / 1024).toFixed(1);
+      const savedPct = Math.round((1 - res.compressedSize / res.originalSize) * 100);
+      setCoverStats({
+        orig: `${origKB} KB`,
+        comp: `${compKB} KB`,
+        ratio: savedPct > 0 ? `${savedPct}% lebih hemat` : 'Optimal',
+      });
+    } catch {
+      triggerNotify('error', 'Gagal memproses dan mengompres foto sampul.');
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const handleRemoveCover = () => {
+    setCoverImage(null);
+    setCoverStats(null);
+  };
+
   const resetForm = () => {
     setJudul('');
     setIdKategori(categories[0]?.id_kategori || 0);
@@ -63,6 +164,8 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
     setIsbn('');
     setNomorPanggil('');
     setDeskripsi('');
+    setCoverImage(null);
+    setCoverStats(null);
     setBarcodes(['']);
   };
 
@@ -80,6 +183,7 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
         judul, id_kategori: idKategori, pengarang, penerbit,
         tahun_terbit: tahunTerbit ? Number(tahunTerbit) : undefined,
         isbn, nomor_panggil: nomorPanggil, deskripsi,
+        foto_sampul: coverImage || undefined,
         barcodes: validBarcodes
       });
       triggerNotify('success', 'Bahan pustaka dan eksemplar berhasil didaftarkan!');
@@ -238,6 +342,107 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
               />
             </div>
 
+            {/* Foto Sampul Buku */}
+            <div className="space-y-2 md:col-span-2 pt-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
+                  Foto Sampul Buku (Otomatis Dikompres)
+                </label>
+                <span className="text-[11px] text-slate-400">Opsional &bull; Format WebP ringan</span>
+              </div>
+
+              {!coverImage ? (
+                <label
+                  htmlFor="cover-file-input"
+                  className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                    compressing
+                      ? 'bg-slate-50 border-indigo-300 dark:bg-slate-900 dark:border-indigo-800'
+                      : 'border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/30 bg-slate-50/50 dark:border-slate-800 dark:hover:border-indigo-500/50 dark:bg-slate-950/40'
+                  }`}
+                >
+                  <input
+                    id="cover-file-input"
+                    type="file"
+                    accept="image/*"
+                    disabled={compressing}
+                    onChange={handleCoverChange}
+                    className="hidden"
+                  />
+                  {compressing ? (
+                    <div className="flex flex-col items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                      <Loader2 className="w-8 h-8 animate-spin" />
+                      <span className="text-xs font-semibold">Mengompresi dan mengoptimasi foto...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          Klik atau seret foto sampul buku ke sini
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Mendukung JPG, PNG, WebP &bull; Otomatis dikompresi menjadi WebP
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </label>
+              ) : (
+                <div className="p-4 rounded-2xl border border-indigo-200 bg-indigo-50/40 dark:border-indigo-900/50 dark:bg-indigo-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-16 h-22 rounded-xl overflow-hidden shadow-md border border-white/50 shrink-0 bg-slate-100 dark:bg-slate-800">
+                      <img
+                        src={coverImage}
+                        alt="Preview Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          Foto Sampul Siap Diunggah
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          <Sparkles className="w-3 h-3" /> {coverStats?.ratio || 'Terkonversi'}
+                        </span>
+                      </div>
+                      {coverStats && (
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-mono">
+                          Ukuran: <span className="line-through text-slate-400">{coverStats.orig}</span> &rarr; <span className="font-bold text-emerald-600 dark:text-emerald-400">{coverStats.comp}</span>
+                        </p>
+                      )}
+                      <p className="text-[10px] text-slate-400">Format: WebP teroptimasi</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <label
+                      htmlFor="cover-file-input-change"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition cursor-pointer"
+                    >
+                      Ganti Foto
+                      <input
+                        id="cover-file-input-change"
+                        type="file"
+                        accept="image/*"
+                        disabled={compressing}
+                        onChange={handleCoverChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCover}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/40 transition cursor-pointer flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Barcodes section */}
             <div className="space-y-2 md:col-span-2 pt-2">
               <div className="flex items-center justify-between">
@@ -308,9 +513,25 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
           >
             <X className="w-5 h-5"/>
           </button>
-          <div className="mb-4">
-            <h2 className="font-extrabold text-lg text-slate-900 dark:text-slate-100">{selectedBook.judul}</h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{selectedBook.pengarang} &bull; {selectedBook.penerbit} &bull; {selectedBook.tahun_terbit}</p>
+          <div className="flex items-start gap-4 mb-5">
+            {selectedBook.foto_sampul ? (
+              <img 
+                src={selectedBook.foto_sampul} 
+                alt={selectedBook.judul}
+                className="w-16 h-24 object-cover rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm shrink-0 bg-slate-100 dark:bg-slate-800"
+              />
+            ) : (
+              <div className="w-16 h-24 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                <BookOpen className="w-8 h-8" />
+              </div>
+            )}
+            <div className="space-y-1">
+              <h2 className="font-extrabold text-lg text-slate-900 dark:text-slate-100 leading-tight">{selectedBook.judul}</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400">{selectedBook.pengarang || 'Tanpa Pengarang'} &bull; {selectedBook.penerbit || '-'} &bull; {selectedBook.tahun_terbit || '-'}</p>
+              {selectedBook.deskripsi && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">{selectedBook.deskripsi}</p>
+              )}
+            </div>
           </div>
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Detail Eksemplar Fisik</h3>
@@ -418,8 +639,23 @@ export default function BooksClient({ books, categories }: BooksClientProps) {
                     <tr key={b.id_bahan} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
                       <td className="px-4 py-3.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">{b.nomor_panggil || '-'}</td>
                       <td className="px-4 py-3.5">
-                        <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{b.judul}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{b.pengarang || 'Tanpa Pengarang'} &bull; {b.penerbit || '-'} &bull; {b.tahun_terbit || '-'}</p>
+                        <div className="flex items-center gap-3">
+                          {b.foto_sampul ? (
+                            <img
+                              src={b.foto_sampul}
+                              alt={b.judul}
+                              className="w-9 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs shrink-0 bg-slate-100 dark:bg-slate-800"
+                            />
+                          ) : (
+                            <div className="w-9 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 flex items-center justify-center text-slate-400">
+                              <BookOpen className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight line-clamp-1">{b.judul}</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{b.pengarang || 'Tanpa Pengarang'} &bull; {b.penerbit || '-'} &bull; {b.tahun_terbit || '-'}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3.5 text-xs">
                         <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 dark:bg-indigo-950/40 dark:border-indigo-500/20 dark:text-indigo-300">

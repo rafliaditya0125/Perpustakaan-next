@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache';
 import prisma from './db';
 import { JenisDenda, KondisiEksemplar, StatusEksemplar } from '@prisma/client';
 import crypto from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
 import {
   generateMfaSecret,
   generateQrCodeDataUrl,
@@ -711,6 +713,7 @@ export async function createBookAction(data: {
   isbn?: string;
   nomor_panggil?: string;
   deskripsi?: string;
+  foto_sampul?: string;
   barcodes: string[];
 }): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
@@ -726,6 +729,24 @@ export async function createBookAction(data: {
     }
   }
 
+  // Handle cover image saving if provided as base64 data URI
+  let coverPath: string | null = null;
+  if (data.foto_sampul && data.foto_sampul.startsWith('data:image/')) {
+    try {
+      const matches = data.foto_sampul.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const buffer = Buffer.from(matches[2], 'base64');
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
+        await fs.mkdir(uploadDir, { recursive: true });
+        const filename = `cover-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.webp`;
+        await fs.writeFile(path.join(uploadDir, filename), buffer);
+        coverPath = `/uploads/covers/${filename}`;
+      }
+    } catch (err) {
+      console.error('Failed to save cover photo:', err);
+    }
+  }
+
   const book = await prisma.bahan_pustaka.create({
     data: {
       judul: data.judul,
@@ -737,6 +758,7 @@ export async function createBookAction(data: {
       nomor_panggil: data.nomor_panggil,
       jumlah_eksemplar: data.barcodes.length,
       deskripsi: data.deskripsi,
+      foto_sampul: coverPath,
     },
   });
 
@@ -753,6 +775,8 @@ export async function createBookAction(data: {
   }
 
   await logAktivitas(user.id_pengguna, `Menambahkan bahan pustaka baru: ${data.judul}`, 'bahan_pustaka');
+  revalidatePath('/anggota/katalog');
+  revalidatePath('/petugas/books');
   return { success: true };
 }
 
