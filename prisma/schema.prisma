@@ -134,6 +134,7 @@ model bahan_pustaka {
   nomor_panggil    String?      @db.VarChar(30)
   jumlah_eksemplar Int          @default(1)
   deskripsi        String?      @db.Text
+  foto_sampul      String?      @db.VarChar(255)
   kategori         kategori     @relation(fields: [id_kategori], references: [id_kategori], onDelete: Cascade)
   eksemplar        eksemplar[]
   reservasi        reservasi[]

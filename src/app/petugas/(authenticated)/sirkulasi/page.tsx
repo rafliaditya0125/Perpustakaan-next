@@ -35,7 +35,12 @@ export default async function SirkulasiPage() {
     where: { status: 'menunggu' },
     include: {
       anggota: true,
-      bahan_pustaka: true,
+      bahan_pustaka: {
+        include: {
+          kategori: true,
+          eksemplar: true,
+        },
+      },
     },
     orderBy: { id_reservasi: 'desc' },
   });

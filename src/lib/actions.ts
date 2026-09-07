@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache';
 import prisma from './db';
 import { JenisDenda, KondisiEksemplar, StatusEksemplar } from '@prisma/client';
 import crypto from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
 import {
   generateMfaSecret,
   generateQrCodeDataUrl,
@@ -711,6 +713,7 @@ export async function createBookAction(data: {
   isbn?: string;
   nomor_panggil?: string;
   deskripsi?: string;
+  foto_sampul?: string;
   barcodes: string[];
 }): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
@@ -726,6 +729,24 @@ export async function createBookAction(data: {
     }
   }
 
+  // Handle cover image saving if provided as base64 data URI
+  let coverPath: string | null = null;
+  if (data.foto_sampul && data.foto_sampul.startsWith('data:image/')) {
+    try {
+      const matches = data.foto_sampul.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const buffer = Buffer.from(matches[2], 'base64');
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
+        await fs.mkdir(uploadDir, { recursive: true });
+        const filename = `cover-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.webp`;
+        await fs.writeFile(path.join(uploadDir, filename), buffer);
+        coverPath = `/uploads/covers/${filename}`;
+      }
+    } catch (err) {
+      console.error('Failed to save cover photo:', err);
+    }
+  }
+
   const book = await prisma.bahan_pustaka.create({
     data: {
       judul: data.judul,
@@ -737,6 +758,7 @@ export async function createBookAction(data: {
       nomor_panggil: data.nomor_panggil,
       jumlah_eksemplar: data.barcodes.length,
       deskripsi: data.deskripsi,
+      foto_sampul: coverPath,
     },
   });
 
@@ -753,6 +775,8 @@ export async function createBookAction(data: {
   }
 
   await logAktivitas(user.id_pengguna, `Menambahkan bahan pustaka baru: ${data.judul}`, 'bahan_pustaka');
+  revalidatePath('/anggota/katalog');
+  revalidatePath('/petugas/books');
   return { success: true };
 }
 
@@ -849,6 +873,15 @@ export async function borrowBookAction(no_identitas: string, barcode: string): P
     staffUserId = defaultPetugas.id_pengguna;
   }
 
+  // Check if member has active reservation for this book to mark as completed
+  const activeRes = await prisma.reservasi.findFirst({
+    where: {
+      id_anggota: member.id_anggota,
+      id_bahan: eksemplar.id_bahan,
+      status: 'menunggu',
+    },
+  });
+
   await prisma.$transaction([
     prisma.transaksi_peminjaman.create({
       data: {
@@ -864,28 +897,288 @@ export async function borrowBookAction(no_identitas: string, barcode: string): P
       where: { id_eksemplar: eksemplar.id_eksemplar },
       data: { status: 'dipinjam' },
     }),
+    ...(activeRes
+      ? [
+          prisma.reservasi.update({
+            where: { id_reservasi: activeRes.id_reservasi },
+            data: { status: 'selesai' },
+          }),
+        ]
+      : []),
   ]);
 
   await logAktivitas(staffUserId, `Memproses pinjaman buku ${eksemplar.bahan_pustaka.judul} untuk anggota ${member.nama}`, 'transaksi_peminjaman');
+  revalidatePath('/petugas/sirkulasi');
+  revalidatePath('/anggota');
+  revalidatePath('/anggota/katalog');
+  return { success: true };
+}
+
+export async function requestBorrowBookAction(id_bahan: number): Promise<{ success: true } | { error: string }> {
+  const user = await getSessionUser();
+  if (!user || user.peran !== 'anggota') {
+    return { error: 'Hanya anggota yang dapat mengajukan peminjaman buku.' };
+  }
+
+  // Find member
+  const member = await prisma.anggota.findUnique({
+    where: { no_identitas: user.no_identitas },
+  });
+  if (!member) {
+    return { error: 'Data anggota tidak ditemukan.' };
+  }
+  if (!member.status_aktif) {
+    return { error: 'Status keanggotaan Anda tidak aktif.' };
+  }
+
+  // Check unpaid fines
+  const activeFines = await prisma.denda.findMany({
+    where: {
+      status_pembayaran: 'belum_bayar',
+      transaksi_peminjaman: {
+        id_anggota: member.id_anggota,
+      },
+    },
+  });
+  if (activeFines.length > 0) {
+    return { error: 'Anda memiliki tanggungan denda yang belum dilunasi. Harap lunasi terlebih dahulu di perpustakaan.' };
+  }
+
+  // Check loan quota (active loans + pending requests)
+  const [activeLoans, activePending] = await Promise.all([
+    prisma.transaksi_peminjaman.findMany({
+      where: { id_anggota: member.id_anggota, status: 'dipinjam' },
+    }),
+    prisma.reservasi.findMany({
+      where: { id_anggota: member.id_anggota, status: 'menunggu' },
+    }),
+  ]);
+
+  const policyLimitParam = await prisma.parameter_kebijakan.findUnique({
+    where: { nama_parameter: 'batas_pinjam' },
+  });
+  const maxLimit = parseInt(policyLimitParam?.nilai || '3');
+
+  if (activeLoans.length + activePending.length >= maxLimit) {
+    return {
+      error: `Anda telah mencapai batas maksimal peminjaman & pengajuan (${maxLimit} buku). Buku dipinjam: ${activeLoans.length}, Pengajuan menunggu: ${activePending.length}.`,
+    };
+  }
+
+  // Check if member already requested this specific book
+  const existingReq = await prisma.reservasi.findFirst({
+    where: {
+      id_anggota: member.id_anggota,
+      id_bahan,
+      status: 'menunggu',
+    },
+  });
+  if (existingReq) {
+    return { error: 'Anda sudah memiliki pengajuan peminjaman untuk buku ini yang sedang menunggu konfirmasi petugas.' };
+  }
+
+  // Check book exists and has available copies
+  const book = await prisma.bahan_pustaka.findUnique({
+    where: { id_bahan },
+    include: { eksemplar: true },
+  });
+  if (!book) {
+    return { error: 'Bahan pustaka tidak ditemukan.' };
+  }
+
+  const availableCopies = book.eksemplar.filter((e) => e.status === 'tersedia');
+  if (availableCopies.length === 0) {
+    return { error: 'Maaf, semua eksemplar buku ini sedang dipinjam atau tidak tersedia.' };
+  }
+
+  await prisma.reservasi.create({
+    data: {
+      id_anggota: member.id_anggota,
+      id_bahan,
+      tanggal_reservasi: new Date(),
+      status: 'menunggu',
+    },
+  });
+
+  await logAktivitas(
+    member.id_anggota,
+    `Mengajukan peminjaman buku: ${book.judul} (Menunggu konfirmasi petugas)`,
+    'reservasi'
+  );
+
+  revalidatePath('/anggota');
+  revalidatePath('/anggota/katalog');
+  revalidatePath(`/anggota/katalog/${id_bahan}`);
+  revalidatePath('/petugas/sirkulasi');
+
   return { success: true };
 }
 
 export async function borrowBookByIdAction(id_bahan: number): Promise<{ success: true } | { error: string }> {
+  return requestBorrowBookAction(id_bahan);
+}
+
+export async function cancelBorrowRequestAction(id_reservasi: number): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
-  if (!user || user.peran !== 'anggota') {
-    return { error: 'Hanya anggota yang dapat meminjam buku dari portal anggota.' };
+  if (!user) throw new Error('Unauthorized');
+
+  const res = await prisma.reservasi.findUnique({
+    where: { id_reservasi },
+    include: { anggota: true, bahan_pustaka: true },
+  });
+  if (!res) {
+    return { error: 'Pengajuan peminjaman tidak ditemukan.' };
+  }
+  if (res.status !== 'menunggu') {
+    return { error: 'Hanya pengajuan dengan status menunggu yang dapat dibatalkan.' };
   }
 
-  const eksemplar = await prisma.eksemplar.findFirst({
-    where: { id_bahan, status: 'tersedia' },
+  // If user is member, ensure they own this reservation
+  if (user.peran === 'anggota' && res.anggota.no_identitas !== user.no_identitas) {
+    return { error: 'Anda tidak memiliki akses untuk membatalkan pengajuan ini.' };
+  }
+
+  await prisma.reservasi.update({
+    where: { id_reservasi },
+    data: { status: 'dibatalkan' },
+  });
+
+  await logAktivitas(
+    user.id_pengguna || res.id_anggota,
+    `Membatalkan pengajuan peminjaman buku: ${res.bahan_pustaka.judul} untuk ${res.anggota.nama}`,
+    'reservasi'
+  );
+
+  revalidatePath('/anggota');
+  revalidatePath('/anggota/katalog');
+  revalidatePath(`/anggota/katalog/${res.id_bahan}`);
+  revalidatePath('/petugas/sirkulasi');
+
+  return { success: true };
+}
+
+export async function confirmBorrowRequestAction(
+  id_reservasi: number,
+  kode_barcode: string
+): Promise<{ success: true } | { error: string }> {
+  const user = await getSessionUser();
+  if (!user || user.peran === 'anggota') {
+    return { error: 'Hanya petugas yang dapat mengonfirmasi peminjaman buku.' };
+  }
+
+  const reservation = await prisma.reservasi.findUnique({
+    where: { id_reservasi },
+    include: {
+      anggota: true,
+      bahan_pustaka: true,
+    },
+  });
+
+  if (!reservation) {
+    return { error: 'Data pengajuan peminjaman tidak ditemukan.' };
+  }
+
+  if (reservation.status !== 'menunggu') {
+    return { error: `Pengajuan ini sudah berstatus ${reservation.status}.` };
+  }
+
+  if (!reservation.anggota.status_aktif) {
+    return { error: 'Status keanggotaan anggota ini tidak aktif.' };
+  }
+
+  // Check unpaid fines
+  const activeFines = await prisma.denda.findMany({
+    where: {
+      status_pembayaran: 'belum_bayar',
+      transaksi_peminjaman: {
+        id_anggota: reservation.id_anggota,
+      },
+    },
+  });
+  if (activeFines.length > 0) {
+    return { error: 'Anggota memiliki tanggungan denda aktif yang belum dilunasi.' };
+  }
+
+  // Find and validate exemplar
+  const cleanBarcode = kode_barcode.trim();
+  const eksemplar = await prisma.eksemplar.findUnique({
+    where: { kode_barcode: cleanBarcode },
     include: { bahan_pustaka: true },
   });
 
   if (!eksemplar) {
-    return { error: 'Tidak ada eksemplar tersedia untuk buku ini.' };
+    return { error: `Eksemplar dengan kode barcode "${cleanBarcode}" tidak ditemukan.` };
   }
 
-  return borrowBookAction(user.no_identitas, eksemplar.kode_barcode);
+  // Check that this exemplar actually belongs to the requested book
+  if (eksemplar.id_bahan !== reservation.id_bahan) {
+    return {
+      error: `Kode barcode "${cleanBarcode}" adalah milik buku "${eksemplar.bahan_pustaka.judul}", bukan buku yang diajukan ("${reservation.bahan_pustaka.judul}").`,
+    };
+  }
+
+  if (eksemplar.status !== 'tersedia') {
+    return { error: `Eksemplar ${cleanBarcode} sedang tidak tersedia (Status: ${eksemplar.status}).` };
+  }
+
+  // Calculate loan duration
+  const isReference = reservation.bahan_pustaka.nomor_panggil?.toUpperCase().startsWith('REF') || false;
+  const paramKey = isReference ? 'lama_pinjam_referensi' : 'lama_pinjam_umum';
+  const durationParam = await prisma.parameter_kebijakan.findUnique({
+    where: { nama_parameter: paramKey },
+  });
+  const days = parseInt(durationParam?.nilai || (isReference ? '3' : '7'));
+
+  const today = new Date();
+  const dueDate = new Date(today);
+  dueDate.setDate(today.getDate() + days);
+
+  let staffUserId = user.id_pengguna;
+  if (!staffUserId) {
+    const defaultPetugas = await prisma.pengguna.findFirst({
+      where: { peran: 'petugas', status_aktif: true },
+    }) || await prisma.pengguna.findFirst({
+      where: { status_aktif: true },
+    });
+    if (!defaultPetugas) {
+      return { error: 'Petugas tidak valid untuk memproses peminjaman.' };
+    }
+    staffUserId = defaultPetugas.id_pengguna;
+  }
+
+  await prisma.$transaction([
+    prisma.transaksi_peminjaman.create({
+      data: {
+        id_anggota: reservation.id_anggota,
+        id_eksemplar: eksemplar.id_eksemplar,
+        id_pengguna: staffUserId,
+        tanggal_pinjam: today,
+        tanggal_jatuh_tempo: dueDate,
+        status: 'dipinjam',
+      },
+    }),
+    prisma.eksemplar.update({
+      where: { id_eksemplar: eksemplar.id_eksemplar },
+      data: { status: 'dipinjam' },
+    }),
+    prisma.reservasi.update({
+      where: { id_reservasi: reservation.id_reservasi },
+      data: { status: 'selesai' },
+    }),
+  ]);
+
+  await logAktivitas(
+    staffUserId,
+    `Mengonfirmasi peminjaman buku ${reservation.bahan_pustaka.judul} (Barcode: ${cleanBarcode}) untuk anggota ${reservation.anggota.nama}`,
+    'transaksi_peminjaman'
+  );
+
+  revalidatePath('/petugas/sirkulasi');
+  revalidatePath('/anggota');
+  revalidatePath('/anggota/katalog');
+  revalidatePath(`/anggota/katalog/${reservation.id_bahan}`);
+
+  return { success: true };
 }
 
 export async function returnBookAction(id_transaksi: number, kondisi_kembali: 'baik' | 'rusak_ringan' | 'rusak_berat' | 'hilang') {

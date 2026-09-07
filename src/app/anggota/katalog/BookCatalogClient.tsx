@@ -24,6 +24,7 @@ interface BookItem {
   isbn?: string | null;
   tahun_terbit?: string | number | null;
   nomor_panggil?: string | null;
+  foto_sampul?: string | null;
   kategori?: { id_kategori: number; nama_kategori: string } | null;
   eksemplar: Array<{
     id_eksemplar: number;
@@ -100,7 +101,7 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
       if ('error' in res) {
         setErrorMsg(res.error);
       } else {
-        setSuccessMsg('Buku berhasil dipinjam! Silakan periksa di Dashboard Anda.');
+        setSuccessMsg('Pengajuan peminjaman berhasil dibuat! Silakan temui petugas perpustakaan dan sebutkan nomor identitas Anda untuk konfirmasi dan scan barcode buku.');
         router.refresh();
       }
     } catch {
@@ -304,17 +305,39 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
                 key={book.id_bahan}
                 className="group rounded-3xl border transition-all duration-200 flex flex-col justify-between bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-500/40 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-black/40 overflow-hidden"
               >
-                <div className="p-6 space-y-4">
-                  {/* Top Badges */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/30">
-                      {book.kategori?.nama_kategori || 'Umum'}
-                    </span>
-                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                      {book.tahun_terbit || '-'}
-                    </span>
+                {book.foto_sampul ? (
+                  <Link href={`/anggota/katalog/${book.id_bahan}`} className="block relative w-full h-48 sm:h-52 overflow-hidden bg-slate-100 dark:bg-slate-800">
+                    <img
+                      src={book.foto_sampul}
+                      alt={book.judul}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                    {/* Spine illusion */}
+                    <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gradient-to-r from-black/50 via-black/20 to-transparent border-r border-white/10 pointer-events-none" />
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">
+                        {book.kategori?.nama_kategori || 'Umum'}
+                      </span>
+                      <span className="text-[11px] font-semibold text-white/90 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20">
+                        {book.tahun_terbit || '-'}
+                      </span>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="px-6 pt-6 pb-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/30">
+                        {book.kategori?.nama_kategori || 'Umum'}
+                      </span>
+                      <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
+                        {book.tahun_terbit || '-'}
+                      </span>
+                    </div>
                   </div>
+                )}
 
+                <div className={`space-y-4 ${book.foto_sampul ? 'p-6 pt-4' : 'px-6 pb-6'}`}>
                   {/* Title & Author - Clickable to Detail Page */}
                   <Link href={`/anggota/katalog/${book.id_bahan}`} className="block space-y-1.5 group/link">
                     <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white line-clamp-2 group-hover/link:text-emerald-600 dark:group-hover/link:text-emerald-400 transition-colors">
@@ -381,11 +404,11 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
                       }`}
                     >
                       {loadingBookId === book.id_bahan ? (
-                        <span>Memproses...</span>
+                        <span>Mengajukan...</span>
                       ) : (
                         <>
                           <BookOpen className="w-3.5 h-3.5" />
-                          <span>Pinjam</span>
+                          <span>Ajukan Pinjam</span>
                         </>
                       )}
                     </button>

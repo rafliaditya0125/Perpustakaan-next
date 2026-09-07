@@ -6,21 +6,27 @@ import {
   returnBookAction, 
   extendLoanAction, 
   payFineAction, 
-  createReservasiAction 
+  createReservasiAction,
+  confirmBorrowRequestAction,
+  cancelBorrowRequestAction
 } from '@/lib/actions';
 import { 
   ArrowRightLeft, 
   CornerDownLeft, 
   Bookmark, 
   Coins, 
-  Search,
-  ScanLine,
-  User,
-  Barcode,
-  AlertCircle,
-  CheckCircle2
+  Search, 
+  ScanLine, 
+  User, 
+  Barcode, 
+  AlertCircle, 
+  CheckCircle2, 
+  Clock, 
+  X,
+  Camera
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
 interface CirculationClientProps {
   activeLoans: any[];
@@ -49,6 +55,15 @@ export default function CirculationClient({
   const [borrowNoIdentitas, setBorrowNoIdentitas] = useState('');
   const [borrowBarcode, setBorrowBarcode] = useState('');
 
+  // Confirmation modal states
+  const [confirmingReservation, setConfirmingReservation] = useState<any | null>(null);
+  const [confirmBarcode, setConfirmBarcode] = useState('');
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  // Barcode Camera Scanner states
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerTarget, setScannerTarget] = useState<'borrow' | 'confirm' | null>(null);
+
   // Return states
   const [selectedReturnTrx, setSelectedReturnTrx] = useState<number | null>(null);
   const [returnKondisi, setReturnKondisi] = useState<'baik' | 'rusak_ringan' | 'rusak_berat' | 'hilang'>('baik');
@@ -74,6 +89,22 @@ export default function CirculationClient({
     }, 4500);
   };
 
+  const handleOpenScanner = (target: 'borrow' | 'confirm') => {
+    setScannerTarget(target);
+    setScannerOpen(true);
+  };
+
+  const handleScannedCode = (code: string) => {
+    if (scannerTarget === 'borrow') {
+      setBorrowBarcode(code);
+      triggerNotify('success', `Barcode berhasil dipindai: ${code}`);
+    } else if (scannerTarget === 'confirm') {
+      setConfirmBarcode(code);
+      triggerNotify('success', `Barcode berhasil dipindai: ${code}`);
+    }
+    setScannerOpen(false);
+  };
+
   // Actions
   const handleBorrow = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +121,52 @@ export default function CirculationClient({
       }
     } catch {
       triggerNotify('error', 'Terjadi kesalahan sistem saat memproses peminjaman.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingReservation || !confirmBarcode.trim()) return;
+
+    setConfirmLoading(true);
+    try {
+      const res: any = await confirmBorrowRequestAction(
+        confirmingReservation.id_reservasi,
+        confirmBarcode.trim()
+      );
+      if (res && res.error) {
+        triggerNotify('error', res.error);
+      } else {
+        triggerNotify(
+          'success',
+          `Peminjaman buku "${confirmingReservation.bahan_pustaka?.judul}" untuk ${confirmingReservation.anggota?.nama} berhasil dikonfirmasi!`
+        );
+        setConfirmingReservation(null);
+        setConfirmBarcode('');
+        router.refresh();
+      }
+    } catch {
+      triggerNotify('error', 'Terjadi kesalahan sistem saat mengonfirmasi peminjaman.');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
+  const handleCancelReservation = async (id_reservasi: number) => {
+    if (!confirm('Apakah Anda yakin ingin membatalkan pengajuan peminjaman ini?')) return;
+    setLoading(true);
+    try {
+      const res: any = await cancelBorrowRequestAction(id_reservasi);
+      if (res && res.error) {
+        triggerNotify('error', res.error);
+      } else {
+        triggerNotify('success', 'Pengajuan peminjaman berhasil dibatalkan.');
+        router.refresh();
+      }
+    } catch {
+      triggerNotify('error', 'Gagal membatalkan pengajuan peminjaman.');
     } finally {
       setLoading(false);
     }
@@ -207,7 +284,7 @@ export default function CirculationClient({
       <div className="rounded-2xl overflow-hidden border transition-all bg-white border-slate-200 shadow-xs dark:bg-slate-900/40 dark:border-slate-800">
         <div className="flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
           {[
-            { id: 'pinjam', label: 'Peminjaman Buku', icon: ArrowRightLeft },
+            { id: 'pinjam', label: 'Peminjaman Buku', icon: ArrowRightLeft, count: activeReservations.length > 0 ? activeReservations.length : undefined },
             { id: 'kembali', label: 'Pengembalian & Perpanjangan', icon: CornerDownLeft, count: activeLoans.length },
             { id: 'denda', label: 'Pembayaran Denda', icon: Coins, count: unpaidFines.length },
             { id: 'reservasi', label: 'Antrean Reservasi', icon: Bookmark, count: activeReservations.length },
@@ -230,12 +307,8 @@ export default function CirculationClient({
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`} />
                 <span>{tab.label}</span>
-                {'count' in tab && typeof tab.count === 'number' && tab.count > 0 && (
-                  <span className={`ml-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    tab.id === 'denda'
-                      ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
-                      : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                  }`}>
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300">
                     {tab.count}
                   </span>
                 )}
@@ -248,68 +321,171 @@ export default function CirculationClient({
         <div className="p-6 sm:p-7">
           {/* Tab 1: Peminjaman */}
           {activeTab === 'pinjam' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <ScanLine className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Formulir Peminjaman Baru</span>
-                </h3>
-                <form onSubmit={handleBorrow} className="space-y-4 max-w-xl">
-                  {/* Member ID */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
-                      No. Identitas Anggota (NISN / NIP / NIK)
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
-                      <input
-                        type="text"
-                        placeholder="Masukkan Nomor Identitas Anggota..."
-                        value={borrowNoIdentitas}
-                        onChange={e => setBorrowNoIdentitas(e.target.value)}
-                        required
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
-                      />
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
+                  <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <ScanLine className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Formulir Peminjaman Baru</span>
+                  </h3>
+                  <form onSubmit={handleBorrow} className="space-y-4 max-w-xl">
+                    {/* Member ID */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
+                        No. Identitas Anggota (NISN / NIP / NIK)
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                        <input
+                          type="text"
+                          placeholder="Masukkan Nomor Identitas Anggota..."
+                          value={borrowNoIdentitas}
+                          onChange={e => setBorrowNoIdentitas(e.target.value)}
+                          required
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Book Barcode */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
-                      Kode Barcode Eksemplar Buku
-                    </label>
-                    <div className="relative">
-                      <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
-                      <input
-                        type="text"
-                        placeholder="Scan atau ketik barcode buku (mis. B000101)..."
-                        value={borrowBarcode}
-                        onChange={e => setBorrowBarcode(e.target.value)}
-                        required
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
-                      />
+                    {/* Book Barcode */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
+                        Kode Barcode Eksemplar Buku
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                          <input
+                            type="text"
+                            placeholder="Scan atau ketik barcode buku (mis. B000101)..."
+                            value={borrowBarcode}
+                            onChange={e => setBorrowBarcode(e.target.value)}
+                            required
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition font-mono font-bold bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenScanner('borrow')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-600/10 dark:border-indigo-500/20 dark:text-indigo-400 dark:hover:bg-indigo-600/20 text-xs font-bold transition cursor-pointer shrink-0"
+                          title="Pindai barcode buku dengan kamera"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span className="hidden sm:inline">Scan Kamera</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-900 text-white font-semibold text-sm rounded-xl transition-all shadow-xs cursor-pointer"
-                  >
-                    {loading ? 'Memproses...' : 'Proses Peminjaman'}
-                  </button>
-                </form>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-900 text-white font-semibold text-sm rounded-xl transition-all shadow-xs cursor-pointer"
+                    >
+                      {loading ? 'Memproses...' : 'Proses Peminjaman'}
+                    </button>
+                  </form>
+                </div>
+                
+                {/* Policy Notes Info card */}
+                <div className="rounded-2xl p-5 space-y-4 border transition-all h-fit bg-indigo-50/70 border-indigo-200/80 text-indigo-950 dark:bg-slate-950/55 dark:border-slate-800 dark:text-slate-300">
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-indigo-700 dark:text-indigo-400">Aturan SOP Peminjaman</h4>
+                  <ul className="text-xs text-slate-700 dark:text-slate-400 space-y-2.5 list-disc pl-4 leading-relaxed font-medium">
+                    <li>Anggota wajib memiliki status keanggotaan aktif.</li>
+                    <li>Maksimal buku yang boleh dipinjam dalam satu waktu adalah <strong>3 buku</strong>.</li>
+                    <li>Buku kategori umum dipinjam selama <strong>7 hari</strong>, buku referensi (kode &apos;REF&apos;) hanya <strong>3 hari</strong>.</li>
+                    <li>Peminjam tidak boleh memiliki tunggakan denda aktif.</li>
+                  </ul>
+                </div>
               </div>
-              
-              {/* Policy Notes Info card */}
-              <div className="rounded-2xl p-5 space-y-4 border transition-all h-fit bg-indigo-50/70 border-indigo-200/80 text-indigo-950 dark:bg-slate-950/55 dark:border-slate-800 dark:text-slate-300">
-                <h4 className="font-extrabold text-xs uppercase tracking-wider text-indigo-700 dark:text-indigo-400">Aturan SOP Peminjaman</h4>
-                <ul className="text-xs text-slate-700 dark:text-slate-400 space-y-2.5 list-disc pl-4 leading-relaxed font-medium">
-                  <li>Anggota wajib memiliki status keanggotaan aktif.</li>
-                  <li>Maksimal buku yang boleh dipinjam dalam satu waktu adalah <strong>3 buku</strong>.</li>
-                  <li>Buku kategori umum dipinjam selama <strong>7 hari</strong>, buku referensi (kode &apos;REF&apos;) hanya <strong>3 hari</strong>.</li>
-                  <li>Peminjam tidak boleh memiliki tunggakan denda aktif.</li>
-                </ul>
+
+              {/* Antrean Pengajuan Peminjaman Anggota (Menunggu Konfirmasi) */}
+              <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-amber-500" />
+                      <span>Pengajuan Peminjaman Anggota (Menunggu Konfirmasi)</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
+                        {activeReservations.length} Antrean
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Anggota yang telah mengajukan peminjaman buku via katalog. Klik tombol konfirmasi untuk memindai barcode buku fisik yang diserahkan.
+                    </p>
+                  </div>
+                </div>
+
+                {activeReservations.length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Tidak ada pengajuan peminjaman yang menunggu konfirmasi saat ini.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <table className="w-full text-sm text-left text-slate-700 dark:text-slate-400">
+                      <thead className="text-xs uppercase font-semibold border-b bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400">
+                        <tr>
+                          <th className="px-4 py-3">Nama Anggota</th>
+                          <th className="px-4 py-3">Buku yang Diajukan</th>
+                          <th className="px-4 py-3">Tanggal Diajukan</th>
+                          <th className="px-4 py-3 text-center">Eksemplar Tersedia</th>
+                          <th className="px-4 py-3 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                        {activeReservations.map((r) => {
+                          const availableCopies = r.bahan_pustaka?.eksemplar?.filter((e: any) => e.status === 'tersedia') || [];
+                          return (
+                            <tr key={r.id_reservasi} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
+                              <td className="px-4 py-3.5">
+                                <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.anggota?.nama}</p>
+                                <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">{r.anggota?.no_identitas}</p>
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <p className="font-semibold text-slate-900 dark:text-slate-100 leading-tight">{r.bahan_pustaka?.judul}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{r.bahan_pustaka?.pengarang || 'Tanpa Pengarang'}</p>
+                              </td>
+                              <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-400">
+                                {new Date(r.tanggal_reservasi).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td className="px-4 py-3.5 text-center">
+                                <span className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
+                                  availableCopies.length > 0
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800'
+                                }`}>
+                                  {availableCopies.length} Tersedia
+                                </span>
+                              </td>
+                              <td className="px-4 py-3.5 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setConfirmingReservation(r);
+                                      setConfirmBarcode('');
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition active:scale-[0.98] cursor-pointer"
+                                  >
+                                    <Barcode className="w-3.5 h-3.5" />
+                                    <span>Konfirmasi &amp; Scan Barcode</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelReservation(r.id_reservasi)}
+                                    className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                    title="Batalkan pengajuan"
+                                  >
+                                    Batal
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -580,12 +756,13 @@ export default function CirculationClient({
                         <th scope="col" className="px-4 py-3">Buku Direservasi</th>
                         <th scope="col" className="px-4 py-3">Tanggal Reservasi</th>
                         <th scope="col" className="px-4 py-3">Status</th>
+                        <th scope="col" className="px-4 py-3 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                       {activeReservations.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="text-center py-6 text-slate-500 dark:text-slate-400 text-xs font-medium">Tidak ada antrean reservasi.</td>
+                          <td colSpan={5} className="text-center py-6 text-slate-500 dark:text-slate-400 text-xs font-medium">Tidak ada antrean reservasi.</td>
                         </tr>
                       ) : (
                         activeReservations.map(r => (
@@ -598,6 +775,29 @@ export default function CirculationClient({
                                 {r.status}
                               </span>
                             </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setConfirmingReservation(r);
+                                    setConfirmBarcode('');
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition active:scale-[0.98] cursor-pointer"
+                                >
+                                  <Barcode className="w-3.5 h-3.5" />
+                                  <span>Konfirmasi</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelReservation(r.id_reservasi)}
+                                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                                  title="Batalkan pengajuan"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -609,6 +809,130 @@ export default function CirculationClient({
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmingReservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                  <ScanLine className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Konfirmasi Peminjaman Buku
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Scan barcode eksemplar fisik buku untuk menyelesaikan peminjaman
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmingReservation(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Anggota Peminjam:</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {confirmingReservation.anggota?.nama} ({confirmingReservation.anggota?.no_identitas})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Judul Buku:</span>
+                <span className="font-bold text-slate-900 dark:text-white truncate max-w-[240px]">
+                  {confirmingReservation.bahan_pustaka?.judul}
+                </span>
+              </div>
+              {confirmingReservation.bahan_pustaka?.eksemplar && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80">
+                  <span className="text-[11px] text-slate-500 block mb-1">
+                    Petunjuk barcode eksemplar di rak ({confirmingReservation.bahan_pustaka.eksemplar.filter((e: any) => e.status === 'tersedia').length} tersedia):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                    {confirmingReservation.bahan_pustaka.eksemplar
+                      .filter((e: any) => e.status === 'tersedia')
+                      .map((e: any) => (
+                        <button
+                          type="button"
+                          key={e.id_eksemplar}
+                          onClick={() => setConfirmBarcode(e.kode_barcode)}
+                          className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 cursor-pointer"
+                          title="Klik untuk memilih barcode ini"
+                        >
+                          {e.kode_barcode} {e.lokasi_rak ? `(${e.lokasi_rak})` : ''}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleConfirmSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
+                  Scan / Masukkan Kode Barcode Buku Fisik *
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Scan barcode buku fisik yang diserahkan..."
+                      value={confirmBarcode}
+                      onChange={(e) => setConfirmBarcode(e.target.value)}
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition font-mono font-bold bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenScanner('confirm')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-600/10 dark:border-indigo-500/20 dark:text-indigo-400 dark:hover:bg-indigo-600/20 text-xs font-bold transition cursor-pointer shrink-0"
+                    title="Pindai barcode fisik dengan kamera"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span className="hidden sm:inline">Scan Kamera</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingReservation(null)}
+                  className="px-4 py-2.5 rounded-xl border text-xs font-semibold bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={confirmLoading || !confirmBarcode.trim()}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-600/20 transition cursor-pointer"
+                >
+                  {confirmLoading ? 'Mengonfirmasi...' : 'Konfirmasi & Serahkan Buku'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Barcode Camera Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScannedCode}
+        title={scannerTarget === 'confirm' ? 'Pindai Barcode Fisik Eksemplar' : 'Pindai Barcode Peminjaman Buku'}
+        subtitle="Arahkan kamera ke barcode buku untuk membaca kode secara instan"
+      />
     </div>
   );
 }
