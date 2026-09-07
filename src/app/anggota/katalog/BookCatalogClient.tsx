@@ -315,15 +315,15 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
                     </span>
                   </div>
 
-                  {/* Title & Author */}
-                  <div className="space-y-1.5">
-                    <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  {/* Title & Author - Clickable to Detail Page */}
+                  <Link href={`/anggota/katalog/${book.id_bahan}`} className="block space-y-1.5 group/link">
+                    <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white line-clamp-2 group-hover/link:text-emerald-600 dark:group-hover/link:text-emerald-400 transition-colors">
                       {book.judul}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">
                       {book.pengarang || 'Penulis Tidak Diketahui'}
                     </p>
-                  </div>
+                  </Link>
 
                   {/* Metadata pills */}
                   <div className="space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/80">
@@ -358,29 +358,38 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
                         isAvailable ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
                       }`}
                     >
-                      {isAvailable ? `${availableCount} Eksemplar Tersedia` : 'Semua Dipinjam'}
+                      {isAvailable ? `${availableCount} Eksemplar` : 'Semua Dipinjam'}
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleBorrow(book.id_bahan)}
-                    disabled={!isAvailable || loadingBookId === book.id_bahan}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition active:scale-[0.98] cursor-pointer ${
-                      isAvailable
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/30'
-                        : 'bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {loadingBookId === book.id_bahan ? (
-                      <span>Memproses...</span>
-                    ) : (
-                      <>
-                        <BookOpen className="w-3.5 h-3.5" />
-                        <span>Pinjam</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/anggota/katalog/${book.id_bahan}`}
+                      className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-emerald-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-emerald-300 dark:hover:bg-slate-800 transition"
+                    >
+                      Detail
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleBorrow(book.id_bahan)}
+                      disabled={!isAvailable || loadingBookId === book.id_bahan}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-[0.98] cursor-pointer ${
+                        isAvailable
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/30'
+                          : 'bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {loadingBookId === book.id_bahan ? (
+                        <span>Memproses...</span>
+                      ) : (
+                        <>
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Pinjam</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
