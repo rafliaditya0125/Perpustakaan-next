@@ -2,6 +2,7 @@ import prisma from '@/lib/db';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { verifyTurnstileToken } from '@/lib/turnstile';
+import { authArcjet, protectWithArcjet } from '@/lib/arcjet';
 
 function hashPassword(password: string) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -9,6 +10,14 @@ function hashPassword(password: string) {
 
 export async function POST(request: Request) {
   try {
+    const arcjetDecision = await protectWithArcjet(authArcjet, request);
+    if (!arcjetDecision.allowed) {
+      return NextResponse.json(
+        { error: arcjetDecision.message || 'Akses dibatasi oleh sistem keamanan.' },
+        { status: arcjetDecision.status }
+      );
+    }
+
     const body = await request.json();
     const {
       nama,

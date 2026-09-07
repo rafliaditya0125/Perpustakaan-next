@@ -17,6 +17,7 @@ import {
   verifyPendingMfaToken,
 } from './mfa';
 import { verifyTurnstileToken } from './turnstile';
+import { authArcjet, protectWithArcjet } from './arcjet';
 
 // Helper to hash password
 function hashPassword(password: string) {
@@ -49,6 +50,14 @@ export async function staffLoginAction(formData: FormData) {
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
   const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+  const arcjetDecision = await protectWithArcjet(authArcjet);
+  if (!arcjetDecision.allowed) {
+    redirect(
+      '/petugas/login?error=' +
+        encodeURIComponent(arcjetDecision.message || 'Akses dibatasi oleh sistem keamanan.')
+    );
+  }
 
   const turnstileResult = await verifyTurnstileToken(turnstileToken);
   if (!turnstileResult.success) {
@@ -131,6 +140,14 @@ export async function memberLoginAction(formData: FormData) {
   const noIdentitas = formData.get('no_identitas') as string;
   const password = formData.get('password') as string;
   const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+  const arcjetDecision = await protectWithArcjet(authArcjet);
+  if (!arcjetDecision.allowed) {
+    redirect(
+      '/login?error=' +
+        encodeURIComponent(arcjetDecision.message || 'Akses dibatasi oleh sistem keamanan.')
+    );
+  }
 
   const turnstileResult = await verifyTurnstileToken(turnstileToken);
   if (!turnstileResult.success) {

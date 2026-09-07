@@ -19,6 +19,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@arcjet/next": "^1.11.0",
     "@prisma/client": "5.22.0",
     "@swc/helpers": "^0.5.23",
     "dotenv": "^17.4.2",
