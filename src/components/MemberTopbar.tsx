@@ -12,6 +12,7 @@ import {
   Sparkles,
   LayoutDashboard,
   CreditCard,
+  BookOpen,
 } from 'lucide-react';
 import { logoutAction } from '@/lib/actions';
 
@@ -80,6 +81,7 @@ export default function MemberTopbar({ member }: MemberTopbarProps) {
   };
 
   const isDashboard = pathname === '/anggota';
+  const isCatalog = pathname === '/anggota/katalog';
   const isProfile = pathname === '/anggota/profil';
 
   return (
@@ -115,6 +117,17 @@ export default function MemberTopbar({ member }: MemberTopbarProps) {
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Dashboard</span>
+              </Link>
+              <Link
+                href="/anggota/katalog"
+                className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-2 ${
+                  isCatalog
+                    ? 'bg-emerald-50 text-emerald-700 font-semibold dark:bg-emerald-500/10 dark:text-emerald-300'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/50'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Katalog Buku</span>
               </Link>
               <Link
                 href="/anggota/profil"
@@ -184,6 +197,30 @@ export default function MemberTopbar({ member }: MemberTopbarProps) {
 
                   {/* Navigation Links */}
                   <div className="space-y-0.5">
+                    {/* Mobile Navigation Links */}
+                    <div className="md:hidden pb-1 mb-1 border-b border-slate-100 dark:border-slate-800/80 space-y-0.5">
+                      <Link
+                        href="/anggota"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-300 dark:hover:text-emerald-300 dark:hover:bg-slate-800/80 transition"
+                      >
+                        <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          <LayoutDashboard className="w-4 h-4" />
+                        </div>
+                        <span>Dashboard Analitik</span>
+                      </Link>
+                      <Link
+                        href="/anggota/katalog"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 dark:text-slate-300 dark:hover:text-emerald-300 dark:hover:bg-slate-800/80 transition"
+                      >
+                        <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          <BookOpen className="w-4 h-4" />
+                        </div>
+                        <span>Katalog Buku</span>
+                      </Link>
+                    </div>
+
                     <Link
                       href="/anggota/profil"
                       onClick={() => setDropdownOpen(false)}
