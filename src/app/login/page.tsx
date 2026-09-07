@@ -1,6 +1,7 @@
 import { memberLoginAction } from '@/lib/actions';
 import { BookMarked, User, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 export default async function LoginPage({
   searchParams,
@@ -92,6 +93,9 @@ export default async function LoginPage({
               <span>{errorMsg}</span>
             </div>
           )}
+
+          {/* Cloudflare Turnstile */}
+          <TurnstileWidget action="member-login" />
 
           {/* Submit Button */}
           <button

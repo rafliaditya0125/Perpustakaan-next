@@ -1,6 +1,7 @@
 import { staffLoginAction } from '@/lib/actions';
 import { BookMarked, User, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 export default async function PetugasLoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const resolvedParams = await searchParams;
@@ -78,6 +79,9 @@ export default async function PetugasLoginPage({ searchParams }: { searchParams:
               <span>{errorMsg}</span>
             </div>
           )}
+
+          {/* Cloudflare Turnstile */}
+          <TurnstileWidget action="staff-login" />
 
           <button
             type="submit"

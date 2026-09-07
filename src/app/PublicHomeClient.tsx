@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import TurnstileWidget from '@/components/TurnstileWidget';
 
 interface PublicHomeClientProps {
   books: any[];
@@ -40,6 +41,7 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
 
   const availableCount = useMemo(
     () =>
@@ -77,6 +79,7 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
     setJenisAnggota('siswa');
     setPassword('');
     setConfirmPassword('');
+    setTurnstileToken('');
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -104,6 +107,11 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
       return;
     }
 
+    if (!turnstileToken) {
+      setErrorMsg('Harap selesaikan verifikasi keamanan (Turnstile) terlebih dahulu.');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch('/api/register', {
@@ -118,6 +126,7 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
           jenis_anggota: jenisAnggota,
           password,
           confirmPassword,
+          turnstileToken,
         }),
       });
 
@@ -478,6 +487,15 @@ export default function PublicHomeClient({ books = [], categories = [] }: Public
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex justify-center sm:justify-start">
+                    <TurnstileWidget
+                      action="member-register"
+                      onVerify={(token) => setTurnstileToken(token)}
+                      onExpire={() => setTurnstileToken('')}
+                      onError={() => setTurnstileToken('')}
+                    />
                   </div>
 
                   <button

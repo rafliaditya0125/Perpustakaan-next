@@ -16,6 +16,7 @@ import {
   signPendingMfaToken,
   verifyPendingMfaToken,
 } from './mfa';
+import { verifyTurnstileToken } from './turnstile';
 
 // Helper to hash password
 function hashPassword(password: string) {
@@ -47,6 +48,12 @@ export async function staffLoginAction(formData: FormData) {
 
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
+  const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+  const turnstileResult = await verifyTurnstileToken(turnstileToken);
+  if (!turnstileResult.success) {
+    redirect('/petugas/login?error=' + encodeURIComponent(turnstileResult.error || 'Verifikasi keamanan gagal'));
+  }
 
   if (!username || !password) {
     redirect('/petugas/login?error=' + encodeURIComponent('Username dan password wajib diisi'));
@@ -123,6 +130,12 @@ export async function memberLoginAction(formData: FormData) {
 
   const noIdentitas = formData.get('no_identitas') as string;
   const password = formData.get('password') as string;
+  const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+  const turnstileResult = await verifyTurnstileToken(turnstileToken);
+  if (!turnstileResult.success) {
+    redirect('/login?error=' + encodeURIComponent(turnstileResult.error || 'Verifikasi keamanan gagal'));
+  }
 
   if (!noIdentitas || !password) {
     redirect('/login?error=' + encodeURIComponent('No. identitas dan password wajib diisi'));
