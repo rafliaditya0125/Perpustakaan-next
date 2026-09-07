@@ -15,16 +15,18 @@ import {
   CornerDownLeft, 
   Bookmark, 
   Coins, 
-  Search,
-  ScanLine,
-  User,
-  Barcode,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  X
+  Search, 
+  ScanLine, 
+  User, 
+  Barcode, 
+  AlertCircle, 
+  CheckCircle2, 
+  Clock, 
+  X,
+  Camera
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import BarcodeScannerModal from '@/components/BarcodeScannerModal';
 
 interface CirculationClientProps {
   activeLoans: any[];
@@ -58,6 +60,10 @@ export default function CirculationClient({
   const [confirmBarcode, setConfirmBarcode] = useState('');
   const [confirmLoading, setConfirmLoading] = useState(false);
 
+  // Barcode Camera Scanner states
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerTarget, setScannerTarget] = useState<'borrow' | 'confirm' | null>(null);
+
   // Return states
   const [selectedReturnTrx, setSelectedReturnTrx] = useState<number | null>(null);
   const [returnKondisi, setReturnKondisi] = useState<'baik' | 'rusak_ringan' | 'rusak_berat' | 'hilang'>('baik');
@@ -81,6 +87,22 @@ export default function CirculationClient({
       setSuccessMsg(null);
       setErrorMsg(null);
     }, 4500);
+  };
+
+  const handleOpenScanner = (target: 'borrow' | 'confirm') => {
+    setScannerTarget(target);
+    setScannerOpen(true);
+  };
+
+  const handleScannedCode = (code: string) => {
+    if (scannerTarget === 'borrow') {
+      setBorrowBarcode(code);
+      triggerNotify('success', `Barcode berhasil dipindai: ${code}`);
+    } else if (scannerTarget === 'confirm') {
+      setConfirmBarcode(code);
+      triggerNotify('success', `Barcode berhasil dipindai: ${code}`);
+    }
+    setScannerOpen(false);
   };
 
   // Actions
@@ -330,16 +352,27 @@ export default function CirculationClient({
                       <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
                         Kode Barcode Eksemplar Buku
                       </label>
-                      <div className="relative">
-                        <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
-                        <input
-                          type="text"
-                          placeholder="Scan atau ketik barcode buku (mis. B000101)..."
-                          value={borrowBarcode}
-                          onChange={e => setBorrowBarcode(e.target.value)}
-                          required
-                          className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
-                        />
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                          <input
+                            type="text"
+                            placeholder="Scan atau ketik barcode buku (mis. B000101)..."
+                            value={borrowBarcode}
+                            onChange={e => setBorrowBarcode(e.target.value)}
+                            required
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition font-mono font-bold bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:bg-slate-900"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenScanner('borrow')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-600/10 dark:border-indigo-500/20 dark:text-indigo-400 dark:hover:bg-indigo-600/20 text-xs font-bold transition cursor-pointer shrink-0"
+                          title="Pindai barcode buku dengan kamera"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span className="hidden sm:inline">Scan Kamera</span>
+                        </button>
                       </div>
                     </div>
 
@@ -846,17 +879,28 @@ export default function CirculationClient({
                 <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
                   Scan / Masukkan Kode Barcode Buku Fisik *
                 </label>
-                <div className="relative">
-                  <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="Scan barcode buku fisik yang diserahkan..."
-                    value={confirmBarcode}
-                    onChange={(e) => setConfirmBarcode(e.target.value)}
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition font-mono font-bold bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Scan barcode buku fisik yang diserahkan..."
+                      value={confirmBarcode}
+                      onChange={(e) => setConfirmBarcode(e.target.value)}
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none border transition font-mono font-bold bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:focus:bg-slate-900"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenScanner('confirm')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-600/10 dark:border-indigo-500/20 dark:text-indigo-400 dark:hover:bg-indigo-600/20 text-xs font-bold transition cursor-pointer shrink-0"
+                    title="Pindai barcode fisik dengan kamera"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span className="hidden sm:inline">Scan Kamera</span>
+                  </button>
                 </div>
               </div>
 
@@ -880,6 +924,15 @@ export default function CirculationClient({
           </div>
         </div>
       )}
+
+      {/* Barcode Camera Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScannedCode}
+        title={scannerTarget === 'confirm' ? 'Pindai Barcode Fisik Eksemplar' : 'Pindai Barcode Peminjaman Buku'}
+        subtitle="Arahkan kamera ke barcode buku untuk membaca kode secara instan"
+      />
     </div>
   );
 }
