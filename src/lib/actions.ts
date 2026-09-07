@@ -5,6 +5,19 @@ import { redirect } from 'next/navigation';
 import prisma from './db';
 import { JenisDenda, KondisiEksemplar, StatusEksemplar } from '@prisma/client';
 import crypto from 'crypto';
+import {
+  generateMfaSecret,
+  generateQrCodeDataUrl,
+  verifyTotpToken,
+  generateRecoveryCodes,
+  createStoredRecoveryCodes,
+  verifyAndConsumeRecoveryCode,
+  countUnusedRecoveryCodes,
+  signPendingMfaToken,
+  verifyPendingMfaToken,
+} from './mfa';
+import { verifyTurnstileToken } from './turnstile';
+import { authArcjet, protectWithArcjet } from './arcjet';
 
 // Helper to hash password
 function hashPassword(password: string) {
@@ -36,6 +49,20 @@ export async function staffLoginAction(formData: FormData) {
 
   const username = formData.get('username') as string;
   const password = formData.get('password') as string;
+  const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+  const arcjetDecision = await protectWithArcjet(authArcjet);
+  if (!arcjetDecision.allowed) {
+    redirect(
+      '/petugas/login?error=' +
+        encodeURIComponent(arcjetDecision.message || 'Akses dibatasi oleh sistem keamanan.')
+    );
+  }
+
+  const turnstileResult = await verifyTurnstileToken(turnstileToken);
+  if (!turnstileResult.success) {
+    redirect('/petugas/login?error=' + encodeURIComponent(turnstileResult.error || 'Verifikasi keamanan gagal'));
+  }
 
   if (!username || !password) {
     redirect('/petugas/login?error=' + encodeURIComponent('Username dan password wajib diisi'));
@@ -55,6 +82,27 @@ export async function staffLoginAction(formData: FormData) {
       redirect('/petugas/login?error=' + encodeURIComponent('Password salah'));
     }
 
+    // Check if MFA is enabled
+    if (user.mfa_enabled) {
+      const pendingToken = signPendingMfaToken({
+        id: user.id_pengguna,
+        userType: 'pengguna',
+        identifier: user.username,
+        nama: user.nama,
+        peran: user.peran,
+      });
+
+      const cookieStore = await cookies();
+      cookieStore.set('mfa-pending', pendingToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 5, // 5 minutes
+        path: '/',
+      });
+
+      redirect('/petugas/login/mfa');
+    }
+
     const sessionData = JSON.stringify({
       id_pengguna: user.id_pengguna,
       nama: user.nama,
@@ -71,7 +119,10 @@ export async function staffLoginAction(formData: FormData) {
     });
 
     await logAktivitas(user.id_pengguna, 'Login ke sistem', 'pengguna');
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw err;
+    }
     console.error('Login error:', err);
     redirect('/petugas/login?error=' + encodeURIComponent('Terjadi kesalahan sistem saat login'));
   }
@@ -88,6 +139,20 @@ export async function memberLoginAction(formData: FormData) {
 
   const noIdentitas = formData.get('no_identitas') as string;
   const password = formData.get('password') as string;
+  const turnstileToken = formData.get('cf-turnstile-response') as string;
+
+  const arcjetDecision = await protectWithArcjet(authArcjet);
+  if (!arcjetDecision.allowed) {
+    redirect(
+      '/login?error=' +
+        encodeURIComponent(arcjetDecision.message || 'Akses dibatasi oleh sistem keamanan.')
+    );
+  }
+
+  const turnstileResult = await verifyTurnstileToken(turnstileToken);
+  if (!turnstileResult.success) {
+    redirect('/login?error=' + encodeURIComponent(turnstileResult.error || 'Verifikasi keamanan gagal'));
+  }
 
   if (!noIdentitas || !password) {
     redirect('/login?error=' + encodeURIComponent('No. identitas dan password wajib diisi'));
@@ -109,6 +174,27 @@ export async function memberLoginAction(formData: FormData) {
     const hashedPassword = hashPassword(password);
     if (member.password_hash !== hashedPassword) {
       redirect('/login?error=' + encodeURIComponent('Password salah'));
+    }
+
+    // Check if MFA is enabled
+    if (member.mfa_enabled) {
+      const pendingToken = signPendingMfaToken({
+        id: member.id_anggota,
+        userType: 'anggota',
+        identifier: member.no_identitas,
+        nama: member.nama,
+        peran: 'anggota',
+      });
+
+      const cookieStore = await cookies();
+      cookieStore.set('mfa-pending', pendingToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 5, // 5 minutes
+        path: '/',
+      });
+
+      redirect('/login/mfa');
     }
 
     const sessionData = JSON.stringify({
@@ -134,6 +220,377 @@ export async function memberLoginAction(formData: FormData) {
   }
 
   redirect('/anggota');
+}
+
+export async function verifyMfaLoginAction(formData: FormData) {
+  'use server';
+
+  const cookieStore = await cookies();
+  const pendingCookie = cookieStore.get('mfa-pending');
+  const payload = verifyPendingMfaToken(pendingCookie?.value);
+
+  if (!payload) {
+    redirect('/petugas/login?error=' + encodeURIComponent('Sesi verifikasi dua langkah telah kedaluwarsa. Silakan login kembali.'));
+  }
+
+  const isStaff = payload.userType === 'pengguna';
+  const errorRedirectBase = isStaff ? '/petugas/login/mfa' : '/login/mfa';
+  const successRedirectTarget = isStaff ? '/petugas/dashboard' : '/anggota';
+
+  const authType = (formData.get('auth_type') as string) || 'totp';
+  const code = (formData.get('code') as string) || '';
+
+  if (!code.trim()) {
+    redirect(`${errorRedirectBase}?error=${encodeURIComponent('Kode autentikasi tidak boleh kosong')}`);
+  }
+
+  try {
+    if (isStaff) {
+      const user = await prisma.pengguna.findUnique({
+        where: { id_pengguna: payload.id },
+      });
+
+      if (!user || !user.status_aktif || !user.mfa_enabled || !user.mfa_secret) {
+        cookieStore.delete('mfa-pending');
+        redirect('/petugas/login?error=' + encodeURIComponent('Akun tidak ditemukan atau MFA tidak aktif'));
+      }
+
+      if (authType === 'recovery') {
+        const { valid, updatedCodesJson } = verifyAndConsumeRecoveryCode(code, user.mfa_recovery_codes);
+        if (!valid || !updatedCodesJson) {
+          redirect(`${errorRedirectBase}?error=${encodeURIComponent('Kode pemulihan tidak valid atau sudah pernah digunakan')}`);
+        }
+
+        await prisma.pengguna.update({
+          where: { id_pengguna: user.id_pengguna },
+          data: { mfa_recovery_codes: updatedCodesJson },
+        });
+
+        await logAktivitas(user.id_pengguna, 'Login dengan Kode Pemulihan (Recovery Code)', 'pengguna');
+      } else {
+        const valid = verifyTotpToken(code, user.mfa_secret);
+        if (!valid) {
+          redirect(`${errorRedirectBase}?error=${encodeURIComponent('Kode autentikasi 6 digit salah atau telah kedaluwarsa')}`);
+        }
+
+        await logAktivitas(user.id_pengguna, 'Login ke sistem (Verifikasi 2FA TOTP)', 'pengguna');
+      }
+
+      const sessionData = JSON.stringify({
+        id_pengguna: user.id_pengguna,
+        nama: user.nama,
+        username: user.username,
+        peran: user.peran,
+      });
+
+      cookieStore.delete('mfa-pending');
+      cookieStore.set('session-user', Buffer.from(sessionData).toString('base64'), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 8,
+        path: '/',
+      });
+    } else {
+      // Member (anggota)
+      const member = await prisma.anggota.findUnique({
+        where: { id_anggota: payload.id },
+      });
+
+      if (!member || !member.status_aktif || !member.mfa_enabled || !member.mfa_secret) {
+        cookieStore.delete('mfa-pending');
+        redirect('/login?error=' + encodeURIComponent('Anggota tidak ditemukan atau MFA tidak aktif'));
+      }
+
+      if (authType === 'recovery') {
+        const { valid, updatedCodesJson } = verifyAndConsumeRecoveryCode(code, member.mfa_recovery_codes);
+        if (!valid || !updatedCodesJson) {
+          redirect(`${errorRedirectBase}?error=${encodeURIComponent('Kode pemulihan tidak valid atau sudah pernah digunakan')}`);
+        }
+
+        await prisma.anggota.update({
+          where: { id_anggota: member.id_anggota },
+          data: { mfa_recovery_codes: updatedCodesJson },
+        });
+      } else {
+        const valid = verifyTotpToken(code, member.mfa_secret);
+        if (!valid) {
+          redirect(`${errorRedirectBase}?error=${encodeURIComponent('Kode autentikasi 6 digit salah atau telah kedaluwarsa')}`);
+        }
+      }
+
+      const sessionData = JSON.stringify({
+        id_anggota: member.id_anggota,
+        nama: member.nama,
+        no_identitas: member.no_identitas,
+        peran: 'anggota',
+      });
+
+      cookieStore.delete('mfa-pending');
+      cookieStore.set('session-user', Buffer.from(sessionData).toString('base64'), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 8,
+        path: '/',
+      });
+    }
+  } catch (err: any) {
+    if (err?.digest?.startsWith('NEXT_REDIRECT')) {
+      throw err;
+    }
+    console.error('MFA Verification error:', err);
+    redirect(`${errorRedirectBase}?error=${encodeURIComponent('Terjadi kesalahan saat verifikasi MFA')}`);
+  }
+
+  redirect(successRedirectTarget);
+}
+
+export async function cancelPendingMfaAction() {
+  const cookieStore = await cookies();
+  const pendingCookie = cookieStore.get('mfa-pending');
+  let redirectTarget = '/petugas/login';
+
+  if (pendingCookie) {
+    const payload = verifyPendingMfaToken(pendingCookie.value);
+    if (payload && payload.userType === 'anggota') {
+      redirectTarget = '/login';
+    }
+    cookieStore.delete('mfa-pending');
+  }
+
+  redirect(redirectTarget);
+}
+
+// MFA Setup & Management Actions
+export async function setupMfaAction() {
+  const session = await getSessionUser();
+  if (!session) {
+    return { error: 'Anda harus login untuk mengatur 2FA.' };
+  }
+
+  const isStaff = session.peran !== 'anggota';
+  const label = isStaff ? (session.username || session.nama) : (session.no_identitas || session.nama);
+  const issuer = isStaff ? 'Perpustakaan (Petugas)' : 'Perpustakaan (Anggota)';
+
+  try {
+    const { secret, otpauthUrl } = generateMfaSecret(label, issuer);
+    const qrCodeDataUrl = await generateQrCodeDataUrl(otpauthUrl);
+    const recoveryCodes = generateRecoveryCodes(8);
+
+    return {
+      success: true,
+      secret,
+      otpauthUrl,
+      qrCodeDataUrl,
+      recoveryCodes,
+    };
+  } catch (err: any) {
+    console.error('Setup MFA error:', err);
+    return { error: 'Gagal membuat konfigurasi MFA: ' + (err.message || 'Unknown error') };
+  }
+}
+
+export async function confirmEnableMfaAction(data: {
+  token: string;
+  secret: string;
+  recoveryCodes: string[];
+}) {
+  const session = await getSessionUser();
+  if (!session) {
+    return { error: 'Anda harus login untuk mengaktifkan 2FA.' };
+  }
+
+  if (!data.token || !data.secret || !Array.isArray(data.recoveryCodes) || data.recoveryCodes.length === 0) {
+    return { error: 'Data verifikasi MFA tidak lengkap.' };
+  }
+
+  // Verify token first
+  const isValid = verifyTotpToken(data.token, data.secret);
+  if (!isValid) {
+    return { error: 'Kode verifikasi 6-digit salah atau kedaluwarsa. Pastikan waktu pada perangkat Anda tepat.' };
+  }
+
+  const storedRecoveryCodes = createStoredRecoveryCodes(data.recoveryCodes);
+  const recoveryCodesJson = JSON.stringify(storedRecoveryCodes);
+
+  try {
+    if (session.peran !== 'anggota') {
+      await prisma.pengguna.update({
+        where: { id_pengguna: session.id_pengguna },
+        data: {
+          mfa_enabled: true,
+          mfa_secret: data.secret,
+          mfa_recovery_codes: recoveryCodesJson,
+        },
+      });
+      await logAktivitas(session.id_pengguna, 'Mengaktifkan Autentikasi Dua Langkah (2FA)', 'pengguna');
+    } else {
+      await prisma.anggota.update({
+        where: { id_anggota: session.id_anggota },
+        data: {
+          mfa_enabled: true,
+          mfa_secret: data.secret,
+          mfa_recovery_codes: recoveryCodesJson,
+        },
+      });
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Confirm enable MFA error:', err);
+    return { error: 'Gagal menyimpan aktivasi 2FA: ' + (err.message || 'Database error') };
+  }
+}
+
+export async function disableMfaAction(password: string) {
+  const session = await getSessionUser();
+  if (!session) {
+    return { error: 'Anda harus login untuk menonaktifkan 2FA.' };
+  }
+
+  if (!password) {
+    return { error: 'Password wajib diisi untuk konfirmasi keamanan.' };
+  }
+
+  const hashedPassword = hashPassword(password);
+
+  try {
+    if (session.peran !== 'anggota') {
+      const user = await prisma.pengguna.findUnique({
+        where: { id_pengguna: session.id_pengguna },
+      });
+
+      if (!user || user.password_hash !== hashedPassword) {
+        return { error: 'Password salah. 2FA tidak dinonaktifkan.' };
+      }
+
+      await prisma.pengguna.update({
+        where: { id_pengguna: session.id_pengguna },
+        data: {
+          mfa_enabled: false,
+          mfa_secret: null,
+          mfa_recovery_codes: null,
+        },
+      });
+
+      await logAktivitas(session.id_pengguna, 'Menonaktifkan Autentikasi Dua Langkah (2FA)', 'pengguna');
+    } else {
+      const member = await prisma.anggota.findUnique({
+        where: { id_anggota: session.id_anggota },
+      });
+
+      if (!member || member.password_hash !== hashedPassword) {
+        return { error: 'Password salah. 2FA tidak dinonaktifkan.' };
+      }
+
+      await prisma.anggota.update({
+        where: { id_anggota: session.id_anggota },
+        data: {
+          mfa_enabled: false,
+          mfa_secret: null,
+          mfa_recovery_codes: null,
+        },
+      });
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Disable MFA error:', err);
+    return { error: 'Gagal menonaktifkan 2FA: ' + (err.message || 'Database error') };
+  }
+}
+
+export async function regenerateRecoveryCodesAction(password: string) {
+  const session = await getSessionUser();
+  if (!session) {
+    return { error: 'Anda harus login untuk regenerasi recovery codes.' };
+  }
+
+  if (!password) {
+    return { error: 'Password wajib diisi untuk konfirmasi keamanan.' };
+  }
+
+  const hashedPassword = hashPassword(password);
+
+  try {
+    const newCodes = generateRecoveryCodes(8);
+    const stored = createStoredRecoveryCodes(newCodes);
+    const json = JSON.stringify(stored);
+
+    if (session.peran !== 'anggota') {
+      const user = await prisma.pengguna.findUnique({
+        where: { id_pengguna: session.id_pengguna },
+      });
+
+      if (!user || user.password_hash !== hashedPassword) {
+        return { error: 'Password salah.' };
+      }
+
+      if (!user.mfa_enabled) {
+        return { error: 'MFA tidak sedang aktif.' };
+      }
+
+      await prisma.pengguna.update({
+        where: { id_pengguna: session.id_pengguna },
+        data: { mfa_recovery_codes: json },
+      });
+
+      await logAktivitas(session.id_pengguna, 'Regenerasi Kode Pemulihan 2FA', 'pengguna');
+    } else {
+      const member = await prisma.anggota.findUnique({
+        where: { id_anggota: session.id_anggota },
+      });
+
+      if (!member || member.password_hash !== hashedPassword) {
+        return { error: 'Password salah.' };
+      }
+
+      if (!member.mfa_enabled) {
+        return { error: 'MFA tidak sedang aktif.' };
+      }
+
+      await prisma.anggota.update({
+        where: { id_anggota: session.id_anggota },
+        data: { mfa_recovery_codes: json },
+      });
+    }
+
+    return { success: true, recoveryCodes: newCodes };
+  } catch (err: any) {
+    console.error('Regenerate recovery codes error:', err);
+    return { error: 'Gagal membuat kode pemulihan baru: ' + (err.message || 'Database error') };
+  }
+}
+
+export async function getMfaStatusAction() {
+  const session = await getSessionUser();
+  if (!session) {
+    return { mfa_enabled: false, remainingRecoveryCodes: 0 };
+  }
+
+  try {
+    if (session.peran !== 'anggota') {
+      const user = await prisma.pengguna.findUnique({
+        where: { id_pengguna: session.id_pengguna },
+        select: { mfa_enabled: true, mfa_recovery_codes: true },
+      });
+      return {
+        mfa_enabled: !!user?.mfa_enabled,
+        remainingRecoveryCodes: countUnusedRecoveryCodes(user?.mfa_recovery_codes ?? null),
+      };
+    } else {
+      const member = await prisma.anggota.findUnique({
+        where: { id_anggota: session.id_anggota },
+        select: { mfa_enabled: true, mfa_recovery_codes: true },
+      });
+      return {
+        mfa_enabled: !!member?.mfa_enabled,
+        remainingRecoveryCodes: countUnusedRecoveryCodes(member?.mfa_recovery_codes ?? null),
+      };
+    }
+  } catch (err) {
+    console.error('Get MFA status error:', err);
+    return { mfa_enabled: false, remainingRecoveryCodes: 0 };
+  }
 }
 
 export async function logoutAction() {

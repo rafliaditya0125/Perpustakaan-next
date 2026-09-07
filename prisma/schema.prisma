@@ -87,6 +87,9 @@ model pengguna {
   password_hash         String                  @db.VarChar(255)
   peran                 Peran
   status_aktif          Boolean                 @default(true)
+  mfa_enabled           Boolean                 @default(false)
+  mfa_secret            String?                 @db.VarChar(255)
+  mfa_recovery_codes    String?                 @db.Text
   created_at            DateTime                @default(now())
   transaksi_peminjaman  transaksi_peminjaman[]
   checklist_operasional checklist_operasional[]
@@ -105,6 +108,9 @@ model anggota {
   jenis_anggota        JenisAnggota
   password_hash        String?                @db.VarChar(255)
   status_aktif         Boolean                @default(true)
+  mfa_enabled          Boolean                @default(false)
+  mfa_secret           String?                @db.VarChar(255)
+  mfa_recovery_codes   String?                @db.Text
   tanggal_daftar       DateTime               @db.Date
   transaksi_peminjaman transaksi_peminjaman[]
   reservasi            reservasi[]

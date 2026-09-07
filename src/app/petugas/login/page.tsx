@@ -1,10 +1,14 @@
 import { staffLoginAction } from '@/lib/actions';
 import { BookMarked, User, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import TurnstileWidget from '@/components/TurnstileWidget';
+import { authArcjet, protectWithArcjet } from '@/lib/arcjet';
 
 export default async function PetugasLoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const resolvedParams = await searchParams;
-  const errorMsg = resolvedParams.error;
+  const arcjetDecision = await protectWithArcjet(authArcjet);
+  const isBlocked = !arcjetDecision.allowed;
+  const errorMsg = isBlocked ? arcjetDecision.message : resolvedParams.error;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans transition-colors duration-200 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -79,9 +83,13 @@ export default async function PetugasLoginPage({ searchParams }: { searchParams:
             </div>
           )}
 
+          {/* Cloudflare Turnstile */}
+          <TurnstileWidget action="staff-login" />
+
           <button
             type="submit"
-            className="w-full py-3 text-sm font-semibold rounded-2xl text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/25 transition active:scale-[0.98] cursor-pointer"
+            disabled={isBlocked}
+            className="w-full py-3 text-sm font-semibold rounded-2xl text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/25 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Masuk Petugas
           </button>

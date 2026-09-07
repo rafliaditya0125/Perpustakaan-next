@@ -2,19 +2,42 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Clock3, History, Search, CheckCircle2, AlertCircle, ArrowRight, UserCheck2 } from 'lucide-react';
+import {
+  BookOpen,
+  Clock3,
+  History,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  UserCheck2,
+  Shield,
+  ShieldCheck,
+} from 'lucide-react';
 import { borrowBookByIdAction } from '@/lib/actions';
+import MfaManagementSection from '@/app/components/MfaManagementSection';
 
 interface MemberPortalClientProps {
   memberName: string;
   books: any[];
   activeLoans: any[];
   loanHistory: any[];
+  mfaStatus?: {
+    mfa_enabled: boolean;
+    remainingRecoveryCodes: number;
+  };
 }
 
-export default function MemberPortalClient({ memberName, books, activeLoans, loanHistory }: MemberPortalClientProps) {
+export default function MemberPortalClient({
+  memberName,
+  books,
+  activeLoans,
+  loanHistory,
+  mfaStatus,
+}: MemberPortalClientProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSecurity, setShowSecurity] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingBookId, setLoadingBookId] = useState<number | null>(null);
@@ -83,6 +106,29 @@ export default function MemberPortalClient({ memberName, books, activeLoans, loa
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               Selamat datang di portal anggota perpustakaan. Anda dapat mencari katalog buku, memilih buku untuk dipinjam, dan melihat status pengembalian serta riwayat peminjaman.
             </p>
+
+            {/* 2FA Quick Action */}
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSecurity(!showSecurity)}
+                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition cursor-pointer ${
+                  mfaStatus?.mfa_enabled
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
+                    : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
+                }`}
+              >
+                {mfaStatus?.mfa_enabled ? (
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                )}
+                <span>Autentikasi 2 Langkah (2FA: {mfaStatus?.mfa_enabled ? 'Aktif' : 'Belum Aktif'})</span>
+                <span className="text-[10px] underline ml-1 font-bold">
+                  {showSecurity ? 'Tutup Pengaturan' : 'Kelola 2FA'}
+                </span>
+              </button>
+            </div>
           </div>
           <div className="rounded-2xl border p-6 text-center shrink-0 bg-emerald-50 border-emerald-200 dark:border-emerald-500/20 dark:bg-emerald-500/5">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -94,6 +140,17 @@ export default function MemberPortalClient({ memberName, books, activeLoans, loa
           </div>
         </div>
       </div>
+
+      {/* Security & 2FA Section (Expandable) */}
+      {showSecurity && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-200">
+          <MfaManagementSection
+            mfaEnabled={!!mfaStatus?.mfa_enabled}
+            remainingRecoveryCodes={mfaStatus?.remainingRecoveryCodes ?? 0}
+            userType="anggota"
+          />
+        </div>
+      )}
 
       {successMsg && (
         <div className="rounded-2xl border p-4 text-sm flex items-center gap-3 bg-emerald-50 border-emerald-200 text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200">
