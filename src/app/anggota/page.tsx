@@ -29,25 +29,12 @@ export default async function AnggotaPage() {
     orderBy: { tanggal_pinjam: 'desc' },
   });
 
-  const member = await prisma.anggota.findUnique({
-    where: { id_anggota: memberId },
-    select: { mfa_enabled: true, mfa_recovery_codes: true },
-  });
-
-  const mfaStatus = {
-    mfa_enabled: !!member?.mfa_enabled,
-    remainingRecoveryCodes: member?.mfa_recovery_codes
-      ? JSON.parse(member.mfa_recovery_codes).filter((c: any) => !c.used).length
-      : 0,
-  };
-
   return (
     <MemberPortalClient
       memberName={session.nama}
       books={books}
       activeLoans={activeLoans}
       loanHistory={loanHistory}
-      mfaStatus={mfaStatus}
     />
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   BookOpen,
   Clock3,
@@ -11,21 +12,38 @@ import {
   AlertCircle,
   ArrowRight,
   UserCheck2,
-  Shield,
-  ShieldCheck,
 } from 'lucide-react';
 import { borrowBookByIdAction } from '@/lib/actions';
-import MfaManagementSection from '@/app/components/MfaManagementSection';
+
+interface BookItem {
+  id_bahan: number;
+  judul: string;
+  pengarang: string | null;
+  penerbit?: string | null;
+  isbn?: string | null;
+  tahun_terbit?: string | number | null;
+  nomor_panggil?: string | null;
+  kategori?: { nama_kategori: string } | null;
+  eksemplar: Array<{ status: string; kode_eksemplar?: string; kode_barcode?: string }>;
+}
+
+interface LoanItem {
+  id_transaksi: number;
+  tanggal_pinjam: string | Date;
+  tanggal_jatuh_tempo: string | Date;
+  status: string;
+  eksemplar: {
+    bahan_pustaka: {
+      judul: string;
+    };
+  };
+}
 
 interface MemberPortalClientProps {
   memberName: string;
-  books: any[];
-  activeLoans: any[];
-  loanHistory: any[];
-  mfaStatus?: {
-    mfa_enabled: boolean;
-    remainingRecoveryCodes: number;
-  };
+  books: BookItem[];
+  activeLoans: LoanItem[];
+  loanHistory: LoanItem[];
 }
 
 export default function MemberPortalClient({
@@ -33,11 +51,9 @@ export default function MemberPortalClient({
   books,
   activeLoans,
   loanHistory,
-  mfaStatus,
 }: MemberPortalClientProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [showSecurity, setShowSecurity] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingBookId, setLoadingBookId] = useState<number | null>(null);
@@ -88,7 +104,7 @@ export default function MemberPortalClient({
         setSuccessMsg('Pinjaman berhasil diproses. Silakan periksa riwayat peminjaman Anda.');
         router.refresh();
       }
-    } catch (err) {
+    } catch {
       setErrorMsg('Gagal memproses pinjaman.');
     } finally {
       setLoadingBookId(null);
@@ -107,27 +123,15 @@ export default function MemberPortalClient({
               Selamat datang di portal anggota perpustakaan. Anda dapat mencari katalog buku, memilih buku untuk dipinjam, dan melihat status pengembalian serta riwayat peminjaman.
             </p>
 
-            {/* 2FA Quick Action */}
+            {/* Profile Quick Action */}
             <div className="mt-4 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowSecurity(!showSecurity)}
-                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition cursor-pointer ${
-                  mfaStatus?.mfa_enabled
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300'
-                    : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300'
-                }`}
+              <Link
+                href="/anggota/profil"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300 shadow-xs"
               >
-                {mfaStatus?.mfa_enabled ? (
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                )}
-                <span>Autentikasi 2 Langkah (2FA: {mfaStatus?.mfa_enabled ? 'Aktif' : 'Belum Aktif'})</span>
-                <span className="text-[10px] underline ml-1 font-bold">
-                  {showSecurity ? 'Tutup Pengaturan' : 'Kelola 2FA'}
-                </span>
-              </button>
+                <span>Lihat Kartu & Profil Anggota</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
           <div className="rounded-2xl border p-6 text-center shrink-0 bg-emerald-50 border-emerald-200 dark:border-emerald-500/20 dark:bg-emerald-500/5">
@@ -140,17 +144,6 @@ export default function MemberPortalClient({
           </div>
         </div>
       </div>
-
-      {/* Security & 2FA Section (Expandable) */}
-      {showSecurity && (
-        <div className="animate-in fade-in slide-in-from-top-4 duration-200">
-          <MfaManagementSection
-            mfaEnabled={!!mfaStatus?.mfa_enabled}
-            remainingRecoveryCodes={mfaStatus?.remainingRecoveryCodes ?? 0}
-            userType="anggota"
-          />
-        </div>
-      )}
 
       {successMsg && (
         <div className="rounded-2xl border p-4 text-sm flex items-center gap-3 bg-emerald-50 border-emerald-200 text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200">
@@ -193,7 +186,7 @@ export default function MemberPortalClient({
                 </div>
               ) : (
                 filteredBooks.map((book) => {
-                  const availableCount = book.eksemplar.filter((eks: any) => eks.status === 'tersedia').length;
+                  const availableCount = book.eksemplar.filter((eks) => eks.status === 'tersedia').length;
                   return (
                     <div
                       key={book.id_bahan}
