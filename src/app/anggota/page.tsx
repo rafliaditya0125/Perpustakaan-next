@@ -13,7 +13,7 @@ export default async function AnggotaPage() {
 
   const memberId = session.id_anggota as number;
 
-  const [activeLoans, loanHistory, unpaidFines] = await Promise.all([
+  const [activeLoans, loanHistory, unpaidFines, pendingRequests] = await Promise.all([
     prisma.transaksi_peminjaman.findMany({
       where: { id_anggota: memberId, status: 'dipinjam' },
       include: {
@@ -50,6 +50,18 @@ export default async function AnggotaPage() {
       },
       _sum: { nominal: true },
     }),
+    prisma.reservasi.findMany({
+      where: { id_anggota: memberId, status: 'menunggu' },
+      include: {
+        bahan_pustaka: {
+          include: {
+            kategori: true,
+            eksemplar: true,
+          },
+        },
+      },
+      orderBy: { tanggal_reservasi: 'desc' },
+    }),
   ]);
 
   const unpaidFinesTotal = unpaidFines._sum.nominal ? Number(unpaidFines._sum.nominal) : 0;
@@ -62,6 +74,7 @@ export default async function AnggotaPage() {
       activeLoans={activeLoans}
       loanHistory={loanHistory}
       unpaidFinesTotal={unpaidFinesTotal}
+      pendingRequests={pendingRequests}
     />
   );
 }

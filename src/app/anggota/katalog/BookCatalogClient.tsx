@@ -101,7 +101,7 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
       if ('error' in res) {
         setErrorMsg(res.error);
       } else {
-        setSuccessMsg('Buku berhasil dipinjam! Silakan periksa di Dashboard Anda.');
+        setSuccessMsg('Pengajuan peminjaman berhasil dibuat! Silakan temui petugas perpustakaan dan sebutkan nomor identitas Anda untuk konfirmasi dan scan barcode buku.');
         router.refresh();
       }
     } catch {
@@ -404,11 +404,11 @@ export default function BookCatalogClient({ books, categories }: BookCatalogClie
                       }`}
                     >
                       {loadingBookId === book.id_bahan ? (
-                        <span>Memproses...</span>
+                        <span>Mengajukan...</span>
                       ) : (
                         <>
                           <BookOpen className="w-3.5 h-3.5" />
-                          <span>Pinjam</span>
+                          <span>Ajukan Pinjam</span>
                         </>
                       )}
                     </button>

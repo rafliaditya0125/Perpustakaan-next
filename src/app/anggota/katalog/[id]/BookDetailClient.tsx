@@ -70,7 +70,7 @@ export default function BookDetailClient({ book }: BookDetailClientProps) {
       if ('error' in res) {
         setErrorMsg(res.error);
       } else {
-        setSuccessMsg('Buku berhasil dipinjam! Anda dapat memeriksanya di Dashboard Anggota.');
+        setSuccessMsg('Pengajuan peminjaman berhasil dibuat! Silakan kunjungi meja petugas perpustakaan dan sebutkan nomor identitas Anda untuk konfirmasi fisik dan pemindaian barcode buku.');
         router.refresh();
       }
     } catch {
@@ -223,7 +223,7 @@ export default function BookDetailClient({ book }: BookDetailClientProps) {
             </div>
 
             {/* Main Borrow Button */}
-            <div className="w-full max-w-[280px]">
+            <div className="w-full max-w-[280px] space-y-2">
               <button
                 type="button"
                 onClick={handleBorrow}
@@ -235,14 +235,17 @@ export default function BookDetailClient({ book }: BookDetailClientProps) {
                 }`}
               >
                 {borrowLoading ? (
-                  <span>Memproses Peminjaman...</span>
+                  <span>Mengajukan Peminjaman...</span>
                 ) : (
                   <>
                     <BookOpen className="w-4 h-4" />
-                    <span>{isAvailable ? 'Pinjam Buku Ini Sekarang' : 'Stok Buku Habis Dipinjam'}</span>
+                    <span>{isAvailable ? 'Ajukan Peminjaman Buku' : 'Stok Buku Habis Dipinjam'}</span>
                   </>
                 )}
               </button>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                Setelah mengajukan, bawa kartu identitas ke petugas perpustakaan untuk konfirmasi fisik dan pemindaian barcode buku.
+              </p>
             </div>
           </div>
 

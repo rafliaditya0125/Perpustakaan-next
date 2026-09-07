@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   BookOpen,
   Clock,
@@ -14,6 +15,7 @@ import {
   Info,
   BadgeAlert,
 } from 'lucide-react';
+import { cancelBorrowRequestAction } from '@/lib/actions';
 
 interface ActiveLoanItem {
   id_transaksi: number;
@@ -54,6 +56,20 @@ interface LoanHistoryItem {
   };
 }
 
+export interface PendingRequestItem {
+  id_reservasi: number;
+  tanggal_reservasi: string | Date;
+  status: string;
+  bahan_pustaka: {
+    id_bahan: number;
+    judul: string;
+    pengarang: string | null;
+    foto_sampul?: string | null;
+    nomor_panggil?: string | null;
+    kategori?: { nama_kategori: string } | null;
+  };
+}
+
 interface MemberDashboardClientProps {
   memberName: string;
   memberId: number;
@@ -61,6 +77,7 @@ interface MemberDashboardClientProps {
   activeLoans: ActiveLoanItem[];
   loanHistory: LoanHistoryItem[];
   unpaidFinesTotal: number;
+  pendingRequests?: PendingRequestItem[];
 }
 
 export default function MemberDashboardClient({
@@ -69,7 +86,31 @@ export default function MemberDashboardClient({
   activeLoans,
   loanHistory,
   unpaidFinesTotal,
+  pendingRequests = [],
 }: MemberDashboardClientProps) {
+  const router = useRouter();
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleCancelRequest = async (id_reservasi: number) => {
+    if (!confirm('Apakah Anda yakin ingin membatalkan pengajuan peminjaman buku ini?')) return;
+    setCancellingId(id_reservasi);
+    setActionMsg(null);
+    try {
+      const res = await cancelBorrowRequestAction(id_reservasi);
+      if ('error' in res) {
+        setActionMsg({ type: 'error', text: res.error });
+      } else {
+        setActionMsg({ type: 'success', text: 'Pengajuan peminjaman berhasil dibatalkan.' });
+        router.refresh();
+      }
+    } catch {
+      setActionMsg({ type: 'error', text: 'Gagal membatalkan pengajuan peminjaman.' });
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const MAX_LOAN_QUOTA = 3;
 
   // Process active loans with countdown calculations
@@ -201,13 +242,18 @@ export default function MemberDashboardClient({
             </div>
           </div>
           <div className="mt-4">
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-3xl font-black text-slate-900 dark:text-white">
                 {activeLoans.length}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400">
                 / {MAX_LOAN_QUOTA} maks buku
               </span>
+              {pendingRequests.length > 0 && (
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-700/40">
+                  +{pendingRequests.length} diajukan
+                </span>
+              )}
             </div>
             {/* Quota bar */}
             <div className="mt-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
@@ -326,6 +372,106 @@ export default function MemberDashboardClient({
           </div>
         </div>
       </div>
+
+      {/* 2.5 Section: Pengajuan Peminjaman Menunggu Konfirmasi Petugas */}
+      {pendingRequests && pendingRequests.length > 0 && (
+        <div className="rounded-3xl border p-6 bg-gradient-to-br from-amber-50/90 via-orange-50/50 to-white dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 border-amber-300/80 dark:border-amber-600/30 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200/80 dark:border-amber-700/40">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-amber-500 text-white shadow-md shadow-amber-500/20">
+                <Clock className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
+                    Pengajuan Peminjaman Menunggu Konfirmasi
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                    {pendingRequests.length} Buku
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                  Buku belum berstatus dipinjam. Bawa kartu anggota Anda / sebutkan NISN <strong>{memberIdentity}</strong> ke meja sirkulasi perpustakaan agar petugas dapat memindai barcode fisik buku.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {actionMsg && (
+            <div
+              className={`p-3.5 rounded-xl text-xs font-semibold border flex items-center justify-between gap-2 ${
+                actionMsg.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                  : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+              }`}
+            >
+              <span>{actionMsg.text}</span>
+              <button
+                type="button"
+                onClick={() => setActionMsg(null)}
+                className="text-xs font-bold underline"
+              >
+                Tutup
+              </button>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {pendingRequests.map((req) => (
+              <div
+                key={req.id_reservasi}
+                className="rounded-2xl p-4 border bg-white dark:bg-slate-900/90 border-amber-200/90 dark:border-amber-800/40 shadow-xs flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-start gap-3">
+                  {req.bahan_pustaka.foto_sampul ? (
+                    <img
+                      src={req.bahan_pustaka.foto_sampul}
+                      alt={req.bahan_pustaka.judul}
+                      className="w-14 h-20 object-cover rounded-xl border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs"
+                    />
+                  ) : (
+                    <div className="w-14 h-20 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      {req.bahan_pustaka.kategori?.nama_kategori || 'Pustaka'}
+                    </span>
+                    <Link
+                      href={`/anggota/katalog/${req.bahan_pustaka.id_bahan}`}
+                      className="block font-bold text-sm text-slate-900 dark:text-white line-clamp-2 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
+                    >
+                      {req.bahan_pustaka.judul}
+                    </Link>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                      {req.bahan_pustaka.pengarang || 'Penulis Tidak Diketahui'}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Diajukan: {formatDate(req.tanggal_reservasi)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    Menunggu Konfirmasi Petugas
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCancelRequest(req.id_reservasi)}
+                    disabled={cancellingId === req.id_reservasi}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition cursor-pointer"
+                  >
+                    {cancellingId === req.id_reservasi ? 'Membatalkan...' : 'Batalkan'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 3. Main Section: Buku yang Sedang Dipinjam & Sisa Waktu Pengembalian */}
       <div className="space-y-4">
