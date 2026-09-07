@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import prisma from './db';
 import { JenisDenda, KondisiEksemplar, StatusEksemplar } from '@prisma/client';
 import crypto from 'crypto';
@@ -1231,4 +1232,85 @@ export async function updatePolicyAction(id: number, nilai: string, keterangan?:
 
   await logAktivitas(user.id_pengguna, `Mengubah parameter kebijakan ${param.nama_parameter} menjadi: ${nilai}`, 'parameter_kebijakan');
   return { success: true };
+}
+
+// 8. MEMBER SELF PROFILE ACTIONS
+export async function updateSelfMemberProfileAction(formData: FormData) {
+  const user = await getSessionUser();
+  if (!user || user.peran !== 'anggota') {
+    return { error: 'Sesi login tidak valid.' };
+  }
+
+  const email = (formData.get('email') as string)?.trim() || null;
+  const no_telepon = (formData.get('no_telepon') as string)?.trim() || null;
+  const alamat = (formData.get('alamat') as string)?.trim() || null;
+
+  try {
+    await prisma.anggota.update({
+      where: { id_anggota: user.id_anggota },
+      data: {
+        email,
+        no_telepon,
+        alamat,
+      },
+    });
+
+    revalidatePath('/anggota');
+    revalidatePath('/anggota/profil');
+    return { success: true, message: 'Data profil berhasil diperbarui!' };
+  } catch (err) {
+    console.error('Update member profile error:', err);
+    return { error: 'Gagal memperbarui profil. Silakan coba lagi.' };
+  }
+}
+
+export async function changeSelfMemberPasswordAction(formData: FormData) {
+  const user = await getSessionUser();
+  if (!user || user.peran !== 'anggota') {
+    return { error: 'Sesi login tidak valid.' };
+  }
+
+  const oldPassword = formData.get('old_password') as string;
+  const newPassword = formData.get('new_password') as string;
+  const confirmPassword = formData.get('confirm_password') as string;
+
+  if (!oldPassword || !newPassword) {
+    return { error: 'Password saat ini dan password baru wajib diisi.' };
+  }
+
+  if (newPassword.length < 6) {
+    return { error: 'Password baru minimal 6 karakter.' };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: 'Konfirmasi password baru tidak cocok.' };
+  }
+
+  try {
+    const member = await prisma.anggota.findUnique({
+      where: { id_anggota: user.id_anggota },
+    });
+
+    if (!member) {
+      return { error: 'Akun anggota tidak ditemukan.' };
+    }
+
+    if (member.password_hash) {
+      const hashedOld = hashPassword(oldPassword);
+      if (hashedOld !== member.password_hash) {
+        return { error: 'Password saat ini tidak cocok.' };
+      }
+    }
+
+    const hashedNew = hashPassword(newPassword);
+    await prisma.anggota.update({
+      where: { id_anggota: user.id_anggota },
+      data: { password_hash: hashedNew },
+    });
+
+    return { success: true, message: 'Password akun berhasil diubah!' };
+  } catch (err) {
+    console.error('Change member password error:', err);
+    return { error: 'Gagal mengubah password. Silakan coba lagi.' };
+  }
 }

@@ -20,9 +20,9 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  var stored = localStorage.getItem('perpustakaan-theme') || 'system';
+                  var stored = localStorage.getItem('perpustakaan-theme');
                   var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  var isDark = stored === 'dark' || (stored === 'system' && prefersDark);
+                  var isDark = stored === 'dark' || (stored !== 'light' && prefersDark);
                   var root = document.documentElement;
                   if (isDark) {
                     root.classList.add('dark');
@@ -31,7 +31,7 @@ export default function RootLayout({
                     root.classList.remove('dark');
                     root.setAttribute('data-theme', 'light');
                   }
-                  root.setAttribute('data-theme-preference', stored);
+                  root.setAttribute('data-theme-preference', isDark ? 'dark' : 'light');
                 } catch (e) {}
               })();
             `,
