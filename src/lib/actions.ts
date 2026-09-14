@@ -1368,17 +1368,40 @@ export async function saveChecklistAction(jenis: 'buka' | 'tutup', items: any, c
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
-  const checklist = await prisma.checklist_operasional.create({
-    data: {
-      id_pengguna: user.id_pengguna,
-      tanggal: new Date(),
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const existing = await prisma.checklist_operasional.findFirst({
+    where: {
       jenis,
-      item_checklist: JSON.stringify(items),
-      catatan,
+      tanggal: today,
     },
   });
 
-  await logAktivitas(user.id_pengguna, `Mengisi checklist operasional ${jenis} harian`, 'checklist_operasional');
+  let checklist;
+  if (existing) {
+    checklist = await prisma.checklist_operasional.update({
+      where: { id_checklist: existing.id_checklist },
+      data: {
+        id_pengguna: user.id_pengguna,
+        item_checklist: JSON.stringify(items),
+        catatan: catatan || null,
+      },
+    });
+    await logAktivitas(user.id_pengguna, `Memperbarui checklist operasional ${jenis} harian`, 'checklist_operasional');
+  } else {
+    checklist = await prisma.checklist_operasional.create({
+      data: {
+        id_pengguna: user.id_pengguna,
+        tanggal: new Date(),
+        jenis,
+        item_checklist: JSON.stringify(items),
+        catatan: catatan || null,
+      },
+    });
+    await logAktivitas(user.id_pengguna, `Mengisi checklist operasional ${jenis} harian`, 'checklist_operasional');
+  }
+
   return { success: true, checklist };
 }
 

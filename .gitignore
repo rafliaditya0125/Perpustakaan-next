@@ -11,7 +11,7 @@
 !.yarn/versions
 
 # IDE
-/.vscode
+.vscode/*
 
 # testing
 /coverage
