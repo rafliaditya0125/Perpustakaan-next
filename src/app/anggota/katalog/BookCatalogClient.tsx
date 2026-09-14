@@ -25,11 +25,12 @@ interface BookItem {
   tahun_terbit?: string | number | null;
   nomor_panggil?: string | null;
   foto_sampul?: string | null;
+  kode_barcode?: string | null;
   kategori?: { id_kategori: number; nama_kategori: string } | null;
   eksemplar: Array<{
     id_eksemplar: number;
     status: string;
-    kode_barcode?: string;
+    kode_barcode?: string | null;
     lokasi_rak?: string | null;
   }>;
 }

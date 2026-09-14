@@ -126,6 +126,7 @@ model kategori {
 model bahan_pustaka {
   id_bahan         Int          @id @default(autoincrement())
   id_kategori      Int
+  kode_barcode     String?      @unique @db.VarChar(50)
   judul            String       @db.VarChar(255)
   pengarang        String?      @db.VarChar(150)
   penerbit         String?      @db.VarChar(150)
@@ -145,7 +146,7 @@ model bahan_pustaka {
 model eksemplar {
   id_eksemplar        Int                   @id @default(autoincrement())
   id_bahan            Int
-  kode_barcode        String                @unique @db.VarChar(30)
+  kode_barcode        String?               @db.VarChar(50)
   kondisi             KondisiEksemplar      @default(baik)
   status              StatusEksemplar       @default(tersedia)
   lokasi_rak          String?               @db.VarChar(30)
