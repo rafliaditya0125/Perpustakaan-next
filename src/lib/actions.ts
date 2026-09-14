@@ -714,19 +714,21 @@ export async function createBookAction(data: {
   nomor_panggil?: string;
   deskripsi?: string;
   foto_sampul?: string;
-  barcodes: string[];
+  kode_barcode?: string;
+  jumlah_eksemplar?: number;
+  barcodes?: string[];
 }): Promise<{ success: true } | { error: string }> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
-  // Check barcodes unique
-  for (const barcode of data.barcodes) {
-    const existing = await prisma.eksemplar.findUnique({
-      where: { kode_barcode: barcode },
-    });
-    if (existing) {
-      return { error: `Kode barcode ${barcode} sudah digunakan.` };
-    }
+  const barcodeCandidate = data.kode_barcode?.trim() || (data.barcodes && data.barcodes[0]?.trim()) || (data.isbn?.trim()) || `B${Date.now().toString().slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
+
+  // Check barcode uniqueness on bahan_pustaka
+  const existing = await prisma.bahan_pustaka.findUnique({
+    where: { kode_barcode: barcodeCandidate },
+  });
+  if (existing) {
+    return { error: `Kode barcode ${barcodeCandidate} sudah digunakan oleh buku "${existing.judul}".` };
   }
 
   // Handle cover image saving if provided as base64 data URI
@@ -747,34 +749,38 @@ export async function createBookAction(data: {
     }
   }
 
+  const qty = Math.max(1, data.jumlah_eksemplar || data.barcodes?.length || 1);
+
   const book = await prisma.bahan_pustaka.create({
     data: {
       judul: data.judul,
       id_kategori: data.id_kategori,
+      kode_barcode: barcodeCandidate,
       pengarang: data.pengarang,
       penerbit: data.penerbit,
       tahun_terbit: data.tahun_terbit,
       isbn: data.isbn,
       nomor_panggil: data.nomor_panggil,
-      jumlah_eksemplar: data.barcodes.length,
+      jumlah_eksemplar: qty,
       deskripsi: data.deskripsi,
       foto_sampul: coverPath,
     },
   });
 
-  for (const barcode of data.barcodes) {
+  const rakLocation = 'Rak-' + (data.nomor_panggil?.substring(0, 3) || 'Umum');
+  for (let i = 0; i < qty; i++) {
     await prisma.eksemplar.create({
       data: {
         id_bahan: book.id_bahan,
-        kode_barcode: barcode,
+        kode_barcode: barcodeCandidate,
         kondisi: 'baik',
         status: 'tersedia',
-        lokasi_rak: 'Rak-' + data.nomor_panggil?.substring(0, 3) || 'Rak-Umum',
+        lokasi_rak: rakLocation,
       },
     });
   }
 
-  await logAktivitas(user.id_pengguna, `Menambahkan bahan pustaka baru: ${data.judul}`, 'bahan_pustaka');
+  await logAktivitas(user.id_pengguna, `Menambahkan bahan pustaka baru: ${data.judul} (Barcode: ${barcodeCandidate}, ${qty} eksemplar)`, 'bahan_pustaka');
   revalidatePath('/anggota/katalog');
   revalidatePath('/petugas/books');
   return { success: true };
@@ -791,6 +797,201 @@ export async function updateEksemplarKondisiStatus(id: number, kondisi: 'baik' |
   });
 
   await logAktivitas(user.id_pengguna, `Mengubah kondisi/status eksemplar ${updated.kode_barcode} (${updated.bahan_pustaka.judul})`, 'eksemplar');
+  return { success: true };
+}
+
+export async function updateBookAction(id_bahan: number, data: {
+  judul: string;
+  id_kategori: number;
+  pengarang?: string;
+  penerbit?: string;
+  tahun_terbit?: number;
+  isbn?: string;
+  nomor_panggil?: string;
+  deskripsi?: string;
+  foto_sampul?: string | null;
+  kode_barcode?: string;
+  jumlah_eksemplar?: number;
+  kuantitas_rusak_ringan?: number;
+  kuantitas_rusak_berat?: number;
+  lokasi_rak?: string;
+}): Promise<{ success: true } | { error: string }> {
+  const user = await getSessionUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const book = await prisma.bahan_pustaka.findUnique({
+    where: { id_bahan },
+    include: { eksemplar: true },
+  });
+  if (!book) return { error: 'Buku tidak ditemukan.' };
+
+  const finalBarcode = data.kode_barcode?.trim() || book.kode_barcode || `B${Date.now().toString().slice(-4)}${Math.floor(100 + Math.random() * 900)}`;
+
+  // Barcode uniqueness check
+  if (finalBarcode !== book.kode_barcode) {
+    const existingWithBarcode = await prisma.bahan_pustaka.findUnique({
+      where: { kode_barcode: finalBarcode },
+    });
+    if (existingWithBarcode && existingWithBarcode.id_bahan !== id_bahan) {
+      return { error: `Kode barcode "${finalBarcode}" sudah digunakan oleh buku lain ("${existingWithBarcode.judul}").` };
+    }
+  }
+
+  // Cover image handling
+  let coverPath: string | null = book.foto_sampul;
+  if (data.foto_sampul === null) {
+    coverPath = null;
+  } else if (data.foto_sampul && data.foto_sampul.startsWith('data:image/')) {
+    try {
+      const matches = data.foto_sampul.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const buffer = Buffer.from(matches[2], 'base64');
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'covers');
+        await fs.mkdir(uploadDir, { recursive: true });
+        const filename = `cover-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.webp`;
+        await fs.writeFile(path.join(uploadDir, filename), buffer);
+        coverPath = `/uploads/covers/${filename}`;
+      }
+    } catch (err) {
+      console.error('Failed to save cover photo:', err);
+    }
+  } else if (typeof data.foto_sampul === 'string') {
+    coverPath = data.foto_sampul;
+  }
+
+  // Target total quantity
+  const currentCopies = book.eksemplar;
+  const currentTotal = currentCopies.length;
+  const targetTotal = typeof data.jumlah_eksemplar === 'number' && data.jumlah_eksemplar >= 1
+    ? data.jumlah_eksemplar
+    : currentTotal;
+
+  const currentAvailable = currentCopies.filter(c => c.status === 'tersedia');
+  const currentBorrowed = currentCopies.filter(c => c.status === 'dipinjam');
+
+  if (targetTotal < currentBorrowed.length) {
+    return {
+      error: `Jumlah buku tidak bisa dikurangi menjadi ${targetTotal} karena ada ${currentBorrowed.length} eksemplar yang sedang dipinjam oleh anggota.`
+    };
+  }
+
+  const rakLocation = data.lokasi_rak?.trim() || currentCopies[0]?.lokasi_rak || ('Rak-' + (data.nomor_panggil?.substring(0, 3) || 'Umum'));
+
+  // Adjust copy quantity
+  if (targetTotal > currentTotal) {
+    const diff = targetTotal - currentTotal;
+    for (let i = 0; i < diff; i++) {
+      await prisma.eksemplar.create({
+        data: {
+          id_bahan,
+          kode_barcode: finalBarcode,
+          kondisi: 'baik',
+          status: 'tersedia',
+          lokasi_rak: rakLocation,
+        },
+      });
+    }
+  } else if (targetTotal < currentTotal) {
+    const diff = currentTotal - targetTotal;
+    if (currentAvailable.length < diff) {
+      return {
+        error: `Hanya ${currentAvailable.length} eksemplar yang berstatus tersedia untuk dikurangi. Sisanya sedang dipinjam.`
+      };
+    }
+    const toDeleteIds = currentAvailable.slice(0, diff).map(c => c.id_eksemplar);
+    await prisma.eksemplar.deleteMany({
+      where: { id_eksemplar: { in: toDeleteIds } },
+    });
+  }
+
+  // Sync barcode & lokasi_rak to remaining copies
+  await prisma.eksemplar.updateMany({
+    where: { id_bahan },
+    data: {
+      kode_barcode: finalBarcode,
+      lokasi_rak: rakLocation,
+    },
+  });
+
+  // Re-fetch remaining copies to apply condition quantities
+  const remainingCopies = await prisma.eksemplar.findMany({
+    where: { id_bahan },
+  });
+
+  // Handle condition quantities if specified
+  if (typeof data.kuantitas_rusak_ringan === 'number' || typeof data.kuantitas_rusak_berat === 'number') {
+    const targetRusakRingan = Math.max(0, data.kuantitas_rusak_ringan || 0);
+    const targetRusakBerat = Math.max(0, data.kuantitas_rusak_berat || 0);
+    
+    // Distribute conditions among copies that are NOT dipinjam first
+    const nonBorrowed = remainingCopies.filter(c => c.status !== 'dipinjam');
+    let assignedBerat = 0;
+    let assignedRingan = 0;
+
+    for (const copy of nonBorrowed) {
+      let nextKondisi: 'baik' | 'rusak_ringan' | 'rusak_berat' = 'baik';
+      if (assignedBerat < targetRusakBerat) {
+        nextKondisi = 'rusak_berat';
+        assignedBerat++;
+      } else if (assignedRingan < targetRusakRingan) {
+        nextKondisi = 'rusak_ringan';
+        assignedRingan++;
+      }
+      if (copy.kondisi !== nextKondisi) {
+        await prisma.eksemplar.update({
+          where: { id_eksemplar: copy.id_eksemplar },
+          data: { kondisi: nextKondisi },
+        });
+      }
+    }
+  }
+
+  // Update bahan_pustaka record
+  await prisma.bahan_pustaka.update({
+    where: { id_bahan },
+    data: {
+      judul: data.judul,
+      id_kategori: data.id_kategori,
+      pengarang: data.pengarang,
+      penerbit: data.penerbit,
+      tahun_terbit: data.tahun_terbit,
+      isbn: data.isbn,
+      nomor_panggil: data.nomor_panggil,
+      jumlah_eksemplar: targetTotal,
+      deskripsi: data.deskripsi,
+      foto_sampul: coverPath,
+      kode_barcode: finalBarcode,
+    },
+  });
+
+  await logAktivitas(user.id_pengguna, `Memperbarui data buku: ${data.judul} (Total Kuantitas: ${targetTotal})`, 'bahan_pustaka');
+  revalidatePath('/anggota/katalog');
+  revalidatePath('/petugas/books');
+  return { success: true };
+}
+
+export async function deleteBookAction(id_bahan: number): Promise<{ success: true } | { error: string }> {
+  const user = await getSessionUser();
+  if (!user) throw new Error('Unauthorized');
+
+  const book = await prisma.bahan_pustaka.findUnique({
+    where: { id_bahan },
+    include: { eksemplar: true },
+  });
+  if (!book) return { error: 'Buku tidak ditemukan.' };
+
+  const hasActiveLoan = book.eksemplar.some(e => e.status === 'dipinjam');
+  if (hasActiveLoan) {
+    return { error: `Buku "${book.judul}" tidak dapat dihapus karena masih ada eksemplar yang sedang dipinjam.` };
+  }
+
+  await prisma.bahan_pustaka.delete({
+    where: { id_bahan },
+  });
+
+  await logAktivitas(user.id_pengguna, `Menghapus bahan pustaka: ${book.judul}`, 'bahan_pustaka');
+  revalidatePath('/anggota/katalog');
+  revalidatePath('/petugas/books');
   return { success: true };
 }
 
@@ -838,16 +1039,34 @@ export async function borrowBookAction(no_identitas: string, barcode: string): P
     return { error: `Anggota sudah mencapai batas maksimal peminjaman (${maxLimit} buku).` };
   }
 
-  const eksemplar = await prisma.eksemplar.findUnique({
-    where: { kode_barcode: barcode },
-    include: { bahan_pustaka: true },
+  const cleanBarcode = barcode.trim();
+  let book = await prisma.bahan_pustaka.findUnique({
+    where: { kode_barcode: cleanBarcode },
+    include: { eksemplar: true },
   });
-  if (!eksemplar) {
-    return { error: 'Eksemplar buku tidak ditemukan.' };
+
+  if (!book) {
+    const fallbackEks = await prisma.eksemplar.findFirst({
+      where: { kode_barcode: cleanBarcode },
+      include: { bahan_pustaka: { include: { eksemplar: true } } },
+    });
+    if (fallbackEks) {
+      book = fallbackEks.bahan_pustaka;
+    }
   }
-  if (eksemplar.status !== 'tersedia') {
-    return { error: `Buku dengan barcode ${barcode} sedang tidak tersedia (Status: ${eksemplar.status}).` };
+
+  if (!book) {
+    return { error: `Buku dengan barcode "${cleanBarcode}" tidak ditemukan.` };
   }
+
+  const availableCopy = book.eksemplar.find((e) => e.status === 'tersedia');
+  if (!availableCopy) {
+    return {
+      error: `Buku "${book.judul}" sedang tidak tersedia (Semua ${book.eksemplar.length} eksemplar fisik sedang dipinjam).`,
+    };
+  }
+
+  const eksemplar = { ...availableCopy, bahan_pustaka: book };
 
   const isReference = eksemplar.bahan_pustaka.nomor_panggil?.toUpperCase().startsWith('REF') || false;
   const paramKey = isReference ? 'lama_pinjam_referensi' : 'lama_pinjam_umum';
@@ -1099,27 +1318,40 @@ export async function confirmBorrowRequestAction(
     return { error: 'Anggota memiliki tanggungan denda aktif yang belum dilunasi.' };
   }
 
-  // Find and validate exemplar
+  // Find and validate book / exemplar
   const cleanBarcode = kode_barcode.trim();
-  const eksemplar = await prisma.eksemplar.findUnique({
+  let book = await prisma.bahan_pustaka.findUnique({
     where: { kode_barcode: cleanBarcode },
-    include: { bahan_pustaka: true },
+    include: { eksemplar: true },
   });
 
-  if (!eksemplar) {
-    return { error: `Eksemplar dengan kode barcode "${cleanBarcode}" tidak ditemukan.` };
+  if (!book) {
+    const fallbackEks = await prisma.eksemplar.findFirst({
+      where: { kode_barcode: cleanBarcode },
+      include: { bahan_pustaka: { include: { eksemplar: true } } },
+    });
+    if (fallbackEks) {
+      book = fallbackEks.bahan_pustaka;
+    }
   }
 
-  // Check that this exemplar actually belongs to the requested book
-  if (eksemplar.id_bahan !== reservation.id_bahan) {
+  if (!book) {
+    return { error: `Buku dengan barcode "${cleanBarcode}" tidak ditemukan.` };
+  }
+
+  // Check that this book actually belongs to the requested book
+  if (book.id_bahan !== reservation.id_bahan) {
     return {
-      error: `Kode barcode "${cleanBarcode}" adalah milik buku "${eksemplar.bahan_pustaka.judul}", bukan buku yang diajukan ("${reservation.bahan_pustaka.judul}").`,
+      error: `Kode barcode "${cleanBarcode}" adalah milik buku "${book.judul}", bukan buku yang diajukan ("${reservation.bahan_pustaka.judul}").`,
     };
   }
 
-  if (eksemplar.status !== 'tersedia') {
-    return { error: `Eksemplar ${cleanBarcode} sedang tidak tersedia (Status: ${eksemplar.status}).` };
+  const availableCopy = book.eksemplar.find((e) => e.status === 'tersedia');
+  if (!availableCopy) {
+    return { error: `Buku "${book.judul}" sedang tidak memiliki eksemplar yang berstatus tersedia.` };
   }
+
+  const eksemplar = { ...availableCopy, bahan_pustaka: book };
 
   // Calculate loan duration
   const isReference = reservation.bahan_pustaka.nomor_panggil?.toUpperCase().startsWith('REF') || false;
@@ -1368,17 +1600,40 @@ export async function saveChecklistAction(jenis: 'buka' | 'tutup', items: any, c
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
-  const checklist = await prisma.checklist_operasional.create({
-    data: {
-      id_pengguna: user.id_pengguna,
-      tanggal: new Date(),
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const existing = await prisma.checklist_operasional.findFirst({
+    where: {
       jenis,
-      item_checklist: JSON.stringify(items),
-      catatan,
+      tanggal: today,
     },
   });
 
-  await logAktivitas(user.id_pengguna, `Mengisi checklist operasional ${jenis} harian`, 'checklist_operasional');
+  let checklist;
+  if (existing) {
+    checklist = await prisma.checklist_operasional.update({
+      where: { id_checklist: existing.id_checklist },
+      data: {
+        id_pengguna: user.id_pengguna,
+        item_checklist: JSON.stringify(items),
+        catatan: catatan || null,
+      },
+    });
+    await logAktivitas(user.id_pengguna, `Memperbarui checklist operasional ${jenis} harian`, 'checklist_operasional');
+  } else {
+    checklist = await prisma.checklist_operasional.create({
+      data: {
+        id_pengguna: user.id_pengguna,
+        tanggal: new Date(),
+        jenis,
+        item_checklist: JSON.stringify(items),
+        catatan: catatan || null,
+      },
+    });
+    await logAktivitas(user.id_pengguna, `Mengisi checklist operasional ${jenis} harian`, 'checklist_operasional');
+  }
+
   return { success: true, checklist };
 }
 
@@ -1446,53 +1701,89 @@ export async function startStockOpnameAction() {
   return { success: true, opname };
 }
 
-export async function processStockOpnameItemAction(id_opname: number, barcode: string, status_ditemukan: 'ditemukan' | 'tidak_ditemukan' | 'rusak', catatan?: string) {
+export async function processStockOpnameItemAction(
+  id_opname: number,
+  barcode: string,
+  status_ditemukan: 'ditemukan' | 'tidak_ditemukan' | 'rusak',
+  catatan?: string,
+  jumlah_ditemukan?: number
+) {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
-  const eksemplar = await prisma.eksemplar.findUnique({
-    where: { kode_barcode: barcode },
+  const cleanBarcode = barcode.trim();
+  let book = await prisma.bahan_pustaka.findUnique({
+    where: { kode_barcode: cleanBarcode },
+    include: { eksemplar: true },
   });
-  if (!eksemplar) {
-    return { error: `Barcode ${barcode} tidak ditemukan di sistem.` };
+
+  if (!book) {
+    const fallbackEks = await prisma.eksemplar.findFirst({
+      where: { kode_barcode: cleanBarcode },
+      include: { bahan_pustaka: { include: { eksemplar: true } } },
+    });
+    if (fallbackEks) {
+      book = fallbackEks.bahan_pustaka;
+    }
   }
 
-  // Check if already checked in this session
-  const checked = await prisma.detail_stock_opname.findFirst({
+  if (!book) {
+    return { error: `Buku dengan barcode "${cleanBarcode}" tidak ditemukan di sistem.` };
+  }
+
+  const eksemplars = book.eksemplar;
+  if (eksemplars.length === 0) {
+    return { error: `Buku "${book.judul}" tidak memiliki data eksemplar fisik.` };
+  }
+
+  // Check if any eksemplar of this book has already been checked in this session
+  const alreadyChecked = await prisma.detail_stock_opname.findFirst({
     where: {
       id_opname,
-      id_eksemplar: eksemplar.id_eksemplar,
+      id_eksemplar: { in: eksemplars.map((e) => e.id_eksemplar) },
     },
   });
 
-  if (checked) {
-    return { error: `Buku dengan barcode ${barcode} sudah diproses sebelumnya dalam sesi ini.` };
+  if (alreadyChecked) {
+    return { error: `Buku "${book.judul}" (Barcode: ${cleanBarcode}) sudah diperiksa dalam sesi opname ini.` };
   }
 
-  // Add detail
-  await prisma.detail_stock_opname.create({
-    data: {
-      id_opname,
-      id_eksemplar: eksemplar.id_eksemplar,
-      status_ditemukan,
-      catatan,
-    },
-  });
+  const totalCount = eksemplars.length;
+  const foundCount = typeof jumlah_ditemukan === 'number'
+    ? Math.min(totalCount, Math.max(0, jumlah_ditemukan))
+    : (status_ditemukan === 'ditemukan' ? totalCount : 0);
 
-  // If status is damaged/lost, update the physical eksemplar status as well
-  if (status_ditemukan === 'rusak') {
-    await prisma.eksemplar.update({
-      where: { id_eksemplar: eksemplar.id_eksemplar },
-      data: { kondisi: 'rusak_berat', status: 'dalam_perbaikan' },
+  for (let i = 0; i < totalCount; i++) {
+    const eks = eksemplars[i];
+    const isFound = i < foundCount;
+    const itemStatus = isFound ? 'ditemukan' : (status_ditemukan === 'ditemukan' ? 'tidak_ditemukan' : status_ditemukan);
+    const itemCatatan = catatan
+      ? `${catatan} (Fisik ${foundCount}/${totalCount})`
+      : `Hitung manual: ${foundCount}/${totalCount} eksemplar ditemukan`;
+
+    await prisma.detail_stock_opname.create({
+      data: {
+        id_opname,
+        id_eksemplar: eks.id_eksemplar,
+        status_ditemukan: itemStatus,
+        catatan: itemCatatan,
+      },
     });
-  } else if (status_ditemukan === 'tidak_ditemukan') {
-    await prisma.eksemplar.update({
-      where: { id_eksemplar: eksemplar.id_eksemplar },
-      data: { status: 'hilang' },
-    });
+
+    if (itemStatus === 'rusak') {
+      await prisma.eksemplar.update({
+        where: { id_eksemplar: eks.id_eksemplar },
+        data: { kondisi: 'rusak_berat', status: 'dalam_perbaikan' },
+      });
+    } else if (itemStatus === 'tidak_ditemukan') {
+      await prisma.eksemplar.update({
+        where: { id_eksemplar: eks.id_eksemplar },
+        data: { status: 'hilang' },
+      });
+    }
   }
 
-  return { success: true };
+  return { success: true, count: totalCount, found: foundCount, title: book.judul };
 }
 
 export async function finishStockOpnameAction(id_opname: number) {

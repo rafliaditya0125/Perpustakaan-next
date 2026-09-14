@@ -14,6 +14,7 @@ import {
   FileText,
   Barcode,
   Sparkles,
+  Layers,
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
@@ -21,7 +22,7 @@ import { borrowBookByIdAction } from '@/lib/actions';
 
 interface ExemplarItem {
   id_eksemplar: number;
-  kode_barcode: string;
+  kode_barcode: string | null;
   kondisi: string;
   status: string;
   lokasi_rak: string | null;
@@ -38,6 +39,7 @@ interface BookDetailData {
   jumlah_eksemplar: number;
   deskripsi: string | null;
   foto_sampul?: string | null;
+  kode_barcode?: string | null;
   kategori: {
     id_kategori: number;
     nama_kategori: string;
@@ -56,7 +58,11 @@ export default function BookDetailClient({ book }: BookDetailClientProps) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const totalCopies = book.eksemplar.length;
   const availableExemplars = book.eksemplar.filter((e) => e.status === 'tersedia');
+  const borrowedExemplars = book.eksemplar.filter((e) => e.status === 'dipinjam');
+  const goodExemplars = book.eksemplar.filter((e) => e.kondisi === 'baik');
+  const damagedExemplars = book.eksemplar.filter((e) => e.kondisi !== 'baik');
   const isAvailable = availableExemplars.length > 0;
   const primaryShelf = book.eksemplar.find((e) => e.lokasi_rak)?.lokasi_rak || 'Rak Koleksi Utama';
 
@@ -357,81 +363,114 @@ export default function BookDetailClient({ book }: BookDetailClientProps) {
         </div>
       </div>
 
-      {/* 6. Daftar Eksemplar Fisik & Status Ketersediaan */}
+      {/* 6. Status Kuantitas & Ketersediaan Koleksi */}
       <div className="space-y-4">
         <div className="pb-2 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-              <Barcode className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <span>Daftar Eksemplar Fisik Buku</span>
+              <Layers className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <span>Status Ketersediaan & Kuantitas Fisik</span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                {book.eksemplar.length} Eksemplar
+                {totalCopies} Total Buku
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Rincian kode barcode, lokasi rak fisik, kondisi buku, dan status ketersediaan masing-masing eksemplar
+              Informasi ketersediaan stok fisik buku, kuantitas siap pinjam, dan kondisi fisik buku
             </p>
           </div>
         </div>
 
-        {book.eksemplar.length === 0 ? (
+        {totalCopies === 0 ? (
           <div className="rounded-2xl border p-6 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-            Belum ada eksemplar fisik yang terdaftar untuk judul buku ini.
+            Belum ada stok fisik yang terdaftar untuk judul buku ini.
           </div>
         ) : (
-          <div className="rounded-3xl border bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <tr>
-                    <th className="px-6 py-3.5 font-bold">No. Eksemplar</th>
-                    <th className="px-6 py-3.5 font-bold">Kode Barcode</th>
-                    <th className="px-6 py-3.5 font-bold">Lokasi Rak</th>
-                    <th className="px-6 py-3.5 font-bold">Kondisi Fisik</th>
-                    <th className="px-6 py-3.5 font-bold text-right">Status Ketersediaan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {book.eksemplar.map((eksemplar, idx) => (
-                    <tr key={eksemplar.id_eksemplar} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
-                      <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">
-                        #{idx + 1}
-                      </td>
-                      <td className="px-6 py-4 font-mono font-bold text-slate-900 dark:text-white">
-                        {eksemplar.kode_barcode}
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-emerald-500" />
-                          <span>{eksemplar.lokasi_rak || 'Rak Utama'}</span>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            eksemplar.kondisi === 'baik'
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-                          }`}
-                        >
-                          {eksemplar.kondisi}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            eksemplar.status === 'tersedia'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                          }`}
-                        >
-                          {eksemplar.status === 'tersedia' ? 'Siap Dipinjam' : eksemplar.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Total Kuantitas */}
+              <div className="rounded-2xl border p-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Kuantitas</p>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{totalCopies}</span>
+                  <span className="text-xs font-semibold text-slate-500">Buku</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">Total eksemplar terdata</p>
+              </div>
+
+              {/* Siap Dipinjam */}
+              <div className="rounded-2xl border p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60 shadow-xs">
+                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">Siap Dipinjam</p>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300 tracking-tight">{availableExemplars.length}</span>
+                  <span className="text-xs font-semibold text-emerald-600">Buku</span>
+                </div>
+                <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/70 mt-1">Tersedia di rak</p>
+              </div>
+
+              {/* Sedang Dipinjam */}
+              <div className="rounded-2xl border p-4 bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60 shadow-xs">
+                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Sedang Dipinjam</p>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-amber-700 dark:text-amber-300 tracking-tight">{borrowedExemplars.length}</span>
+                  <span className="text-xs font-semibold text-amber-600">Buku</span>
+                </div>
+                <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 mt-1">Oleh anggota lain</p>
+              </div>
+
+              {/* Kondisi Fisik */}
+              <div className="rounded-2xl border p-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Kondisi Fisik</p>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{goodExemplars.length}</span>
+                  <span className="text-xs font-semibold text-slate-500">Baik</span>
+                </div>
+                <p className="text-[11px] mt-1 text-slate-500">
+                  {damagedExemplars.length > 0 ? (
+                    <span className="text-rose-600 dark:text-rose-400 font-semibold">{damagedExemplars.length} buku rusak</span>
+                  ) : (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Semua kondisi baik</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Banner Informasi Rak & Barcode Judul */}
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Lokasi Penempatan Rak Fisik</div>
+                  <div className="font-bold text-slate-900 dark:text-white text-sm">{primaryShelf}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                  <Barcode className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Barcode Judul Buku</div>
+                  <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                    {book.kode_barcode || '-'}
+                  </div>
+                </div>
+              </div>
+
+              {book.nomor_panggil && (
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 flex items-center justify-center shrink-0">
+                    <Bookmark className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Nomor Panggil DDC</div>
+                    <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                      {book.nomor_panggil}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

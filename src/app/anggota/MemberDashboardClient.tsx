@@ -25,13 +25,14 @@ interface ActiveLoanItem {
   jumlah_perpanjangan: number;
   eksemplar: {
     id_eksemplar: number;
-    kode_barcode?: string;
+    kode_barcode?: string | null;
     lokasi_rak?: string | null;
     bahan_pustaka: {
       id_bahan: number;
       judul: string;
       pengarang: string | null;
       penerbit?: string | null;
+      kode_barcode?: string | null;
       kategori?: { nama_kategori: string } | null;
     };
   };

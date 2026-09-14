@@ -45,6 +45,7 @@ export default function OpnameClient({
   const [activeTab, setActiveTab] = useState<'opname' | 'riwayat' | 'weeding'>('opname');
 
   const [barcode, setBarcode] = useState('');
+  const [jumlahDitemukan, setJumlahDitemukan] = useState<number | ''>('');
   const [statusDitemukan, setStatusDitemukan] = useState<'ditemukan' | 'tidak_ditemukan' | 'rusak'>('ditemukan');
   const [catatan, setCatatan] = useState('');
 
@@ -80,13 +81,15 @@ export default function OpnameClient({
         activeSesi.id_opname,
         barcode.trim(),
         statusDitemukan,
-        catatan.trim() || undefined
+        catatan.trim() || undefined,
+        jumlahDitemukan !== '' ? Number(jumlahDitemukan) : undefined
       );
       if ('error' in result && result.error) {
         showMsg('error', result.error as string);
       } else {
         showMsg('success', `Barcode ${barcode} berhasil dicatat sebagai "${statusDitemukan}".`);
         setBarcode('');
+        setJumlahDitemukan('');
         setCatatan('');
         router.refresh();
       }
@@ -254,12 +257,18 @@ export default function OpnameClient({
 
                   {/* Scan Form */}
                   <div className="rounded-2xl p-6 border transition-all bg-slate-50/80 border-slate-200 dark:bg-slate-950/30 dark:border-slate-800 space-y-4">
-                    <h3 className="text-base font-extrabold tracking-tight flex items-center gap-2 text-slate-900 dark:text-slate-100">
-                      <ScanLine className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                      <span>Pindai Barcode Eksemplar</span>
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-1">
+                    <div>
+                      <h3 className="text-base font-extrabold tracking-tight flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                        <ScanLine className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                        <span>Pindai Barcode Judul &amp; Hitung Manual Eksemplar</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Satu barcode mewakili satu judul buku. Scan barcode, lalu isi jumlah fisik eksemplar yang berhasil dihitung manual di rak.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
                         <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-400">
                           Kode Barcode *
                         </label>
@@ -268,21 +277,38 @@ export default function OpnameClient({
                           value={barcode}
                           onChange={(e) => setBarcode(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleScanBarcode()}
-                          placeholder="Scan atau ketik barcode..."
-                          className="w-full rounded-xl px-4 py-3 text-sm outline-none border transition bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-600"
+                          placeholder="Scan barcode buku..."
+                          className="w-full rounded-xl px-4 py-3 text-sm font-mono font-bold outline-none border transition bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-600"
                           autoFocus
                         />
                       </div>
-                      <div className="md:col-span-1">
+
+                      <div>
                         <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-400">
-                          Status Fisik *
+                          Jumlah Fisik Ditemukan
                         </label>
-                        <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={jumlahDitemukan}
+                          onChange={(e) => setJumlahDitemukan(e.target.value === '' ? '' : Number(e.target.value))}
+                          onKeyDown={(e) => e.key === 'Enter' && handleScanBarcode()}
+                          placeholder="Semua (hitung manual)"
+                          className="w-full rounded-xl px-4 py-3 text-sm font-bold outline-none border transition bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-600"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-1 block">Kosongkan jika semua eksemplar ada</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-400">
+                          Status Fisik Default *
+                        </label>
+                        <div className="flex gap-1.5">
                           {STATUS_DITEMUKAN_OPTIONS.map(opt => (
                             <button
                               key={opt.value}
                               onClick={() => setStatusDitemukan(opt.value)}
-                              className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              className={`flex-1 py-3 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
                                 statusDitemukan === opt.value
                                   ? opt.color === 'emerald'
                                     ? 'bg-emerald-600 border-emerald-600 text-white'
@@ -297,7 +323,8 @@ export default function OpnameClient({
                           ))}
                         </div>
                       </div>
-                      <div className="md:col-span-1">
+
+                      <div>
                         <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-400">
                           Catatan (Opsional)
                         </label>
@@ -305,11 +332,13 @@ export default function OpnameClient({
                           type="text"
                           value={catatan}
                           onChange={(e) => setCatatan(e.target.value)}
-                          placeholder="Kondisi khusus, keterangan..."
+                          onKeyDown={(e) => e.key === 'Enter' && handleScanBarcode()}
+                          placeholder="Keterangan fisik / rak..."
                           className="w-full rounded-xl px-4 py-3 text-sm outline-none border transition bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-600"
                         />
                       </div>
                     </div>
+
                     <div className="flex justify-end pt-1">
                       <button
                         onClick={handleScanBarcode}

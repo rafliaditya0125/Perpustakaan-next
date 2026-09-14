@@ -350,14 +350,14 @@ export default function CirculationClient({
                     {/* Book Barcode */}
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
-                        Kode Barcode Eksemplar Buku
+                        Kode Barcode Buku
                       </label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <Barcode className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 dark:text-slate-500" />
                           <input
                             type="text"
-                            placeholder="Scan atau ketik barcode buku (mis. B000101)..."
+                            placeholder="Scan atau ketik barcode judul buku (mis. B000101)..."
                             value={borrowBarcode}
                             onChange={e => setBorrowBarcode(e.target.value)}
                             required
@@ -374,6 +374,9 @@ export default function CirculationClient({
                           <span className="hidden sm:inline">Scan Kamera</span>
                         </button>
                       </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Cukup scan barcode judul buku. Sistem otomatis mengalokasikan eksemplar fisik yang berstatus tersedia.
+                      </p>
                     </div>
 
                     <button
@@ -877,7 +880,7 @@ export default function CirculationClient({
             <form onSubmit={handleConfirmSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider block text-slate-700 dark:text-slate-400">
-                  Scan / Masukkan Kode Barcode Buku Fisik *
+                  Scan / Masukkan Kode Barcode Buku *
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -885,7 +888,7 @@ export default function CirculationClient({
                     <input
                       type="text"
                       autoFocus
-                      placeholder="Scan barcode buku fisik yang diserahkan..."
+                      placeholder="Scan barcode judul buku yang diserahkan..."
                       value={confirmBarcode}
                       onChange={(e) => setConfirmBarcode(e.target.value)}
                       required
@@ -902,6 +905,9 @@ export default function CirculationClient({
                     <span className="hidden sm:inline">Scan Kamera</span>
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Scan barcode buku judul ini, sistem akan otomatis memilih eksemplar tersedia untuk diserahkan.
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
@@ -930,7 +936,7 @@ export default function CirculationClient({
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onScan={handleScannedCode}
-        title={scannerTarget === 'confirm' ? 'Pindai Barcode Fisik Eksemplar' : 'Pindai Barcode Peminjaman Buku'}
+        title={scannerTarget === 'confirm' ? 'Pindai Barcode Buku' : 'Pindai Barcode Peminjaman Buku'}
         subtitle="Arahkan kamera ke barcode buku untuk membaca kode secara instan"
       />
     </div>

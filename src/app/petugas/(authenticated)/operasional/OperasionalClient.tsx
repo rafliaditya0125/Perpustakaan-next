@@ -20,6 +20,8 @@ import {
   ChevronDown,
   FileWarning,
   ListChecks,
+  Edit3,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -27,6 +29,7 @@ interface ChecklistItem {
   id: string;
   label: string;
   checked: boolean;
+  waktu?: string | null;
 }
 
 const CHECKLIST_BUKA: { id: string; label: string }[] = [
@@ -75,14 +78,54 @@ export default function OperasionalClient({
 
   const [activeTab, setActiveTab] = useState<'buka' | 'tutup' | 'kejadian'>('buka');
 
-  const [checklistBuka, setChecklistBuka] = useState<ChecklistItem[]>(
-    CHECKLIST_BUKA.map(item => ({ ...item, checked: false }))
-  );
-  const [checklistTutup, setChecklistTutup] = useState<ChecklistItem[]>(
-    CHECKLIST_TUTUP.map(item => ({ ...item, checked: false }))
-  );
-  const [catatanBuka, setCatatanBuka] = useState('');
-  const [catatanTutup, setCatatanTutup] = useState('');
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const savedBuka = checklistHariIni.find((c) => c.jenis === 'buka');
+  const savedTutup = checklistHariIni.find((c) => c.jenis === 'tutup');
+
+  const hadBuka = !!savedBuka;
+  const hadTutup = !!savedTutup;
+
+  const [isEditingBuka, setIsEditingBuka] = useState(false);
+  const [isEditingTutup, setIsEditingTutup] = useState(false);
+
+  const parsedBukaItems: ChecklistItem[] = (() => {
+    if (!savedBuka?.item_checklist) return [];
+    try {
+      return JSON.parse(savedBuka.item_checklist);
+    } catch {
+      return [];
+    }
+  })();
+
+  const parsedTutupItems: ChecklistItem[] = (() => {
+    if (!savedTutup?.item_checklist) return [];
+    try {
+      return JSON.parse(savedTutup.item_checklist);
+    } catch {
+      return [];
+    }
+  })();
+
+  const [checklistBuka, setChecklistBuka] = useState<ChecklistItem[]>(() => {
+    if (parsedBukaItems.length > 0) {
+      return parsedBukaItems;
+    }
+    return CHECKLIST_BUKA.map(item => ({ ...item, checked: false, waktu: null }));
+  });
+
+  const [checklistTutup, setChecklistTutup] = useState<ChecklistItem[]>(() => {
+    if (parsedTutupItems.length > 0) {
+      return parsedTutupItems;
+    }
+    return CHECKLIST_TUTUP.map(item => ({ ...item, checked: false, waktu: null }));
+  });
+
+  const [catatanBuka, setCatatanBuka] = useState(savedBuka?.catatan || '');
+  const [catatanTutup, setCatatanTutup] = useState(savedTutup?.catatan || '');
 
   // Laporan kejadian form
   const [jenisKejadian, setJenisKejadian] = useState('');
@@ -91,9 +134,6 @@ export default function OperasionalClient({
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const hadBuka = checklistHariIni.some((c) => c.jenis === 'buka');
-  const hadTutup = checklistHariIni.some((c) => c.jenis === 'tutup');
 
   const showMsg = (type: 'success' | 'error', msg: string) => {
     if (type === 'success') {
@@ -110,11 +150,31 @@ export default function OperasionalClient({
   };
 
   const toggleChecklistItem = (jenis: 'buka' | 'tutup', id: string) => {
-    if (jenis === 'buka') {
-      setChecklistBuka(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
-    } else {
-      setChecklistTutup(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
-    }
+    const setter = jenis === 'buka' ? setChecklistBuka : setChecklistTutup;
+    setter(prev =>
+      prev.map(item => {
+        if (item.id !== id) return item;
+        const nextChecked = !item.checked;
+        return {
+          ...item,
+          checked: nextChecked,
+          waktu: nextChecked ? (item.waktu || getCurrentTimeString()) : null,
+        };
+      })
+    );
+  };
+
+  const handleTimeChange = (jenis: 'buka' | 'tutup', id: string, newTime: string) => {
+    const setter = jenis === 'buka' ? setChecklistBuka : setChecklistTutup;
+    setter(prev =>
+      prev.map(item => {
+        if (item.id !== id) return item;
+        return {
+          ...item,
+          waktu: newTime,
+        };
+      })
+    );
   };
 
   const handleSaveChecklist = (jenis: 'buka' | 'tutup') => {
@@ -126,6 +186,8 @@ export default function OperasionalClient({
 
       if (result.success) {
         showMsg('success', `Checklist ${jenis === 'buka' ? 'pembukaan' : 'penutupan'} berhasil disimpan!`);
+        if (jenis === 'buka') setIsEditingBuka(false);
+        if (jenis === 'tutup') setIsEditingTutup(false);
         router.refresh();
       } else {
         showMsg('error', 'Gagal menyimpan checklist.');
@@ -263,46 +325,197 @@ export default function OperasionalClient({
         <div className="p-6 sm:p-7">
           {/* CHECKLIST BUKA */}
           {activeTab === 'buka' && (
-            <div className="space-y-5">
-              {hadBuka ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                  <div className="p-4 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
-                    <CheckCircle2 className="w-10 h-10" />
+            <div className="space-y-6">
+              {hadBuka && !isEditingBuka ? (
+                <div className="space-y-6">
+                  {/* Status Banner */}
+                  <div className="rounded-2xl p-6 border transition-all bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50 border-emerald-200 shadow-xs dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-emerald-950/30 dark:border-emerald-800/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400 shrink-0">
+                          <CheckCircle2 className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-emerald-950 dark:text-emerald-100">
+                              Checklist Pembukaan Selesai
+                            </h3>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300">
+                              Hari Ini
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                            <span>Diisi oleh <strong className="text-slate-800 dark:text-slate-200">{savedBuka?.pengguna?.nama}</strong></span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{savedBuka?.tanggal ? new Date(savedBuka.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Hari ini'}</span>
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChecklistBuka(parsedBukaItems.length > 0 ? parsedBukaItems : CHECKLIST_BUKA.map(i => ({ ...i, checked: false, waktu: null })));
+                          setCatatanBuka(savedBuka?.catatan || '');
+                          setIsEditingBuka(true);
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800 dark:bg-slate-900 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs shrink-0"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Ubah Checklist</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-400">Checklist Pembukaan Selesai</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      Diisi oleh <span className="font-semibold text-slate-800 dark:text-slate-200">{checklistHariIni.find(c => c.jenis === 'buka')?.pengguna?.nama}</span> hari ini.
-                    </p>
+
+                  {/* List Item & Waktu Diceklis */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
+                        Rincian Item Pengecekan &amp; Waktu Pelaksanaan
+                      </h4>
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/40 px-2.5 py-0.5 rounded-full">
+                        {parsedBukaItems.filter(i => i.checked).length} dari {parsedBukaItems.length} item selesai
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {parsedBukaItems.map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border transition-all ${
+                            item.checked
+                              ? 'bg-white border-slate-200 shadow-xs dark:bg-slate-950/40 dark:border-slate-800'
+                              : 'bg-slate-50/60 border-slate-200/60 opacity-60 dark:bg-slate-950/20 dark:border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 flex-1">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                              item.checked
+                                ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                                : 'border-2 border-slate-300 dark:border-slate-600'
+                            }`}>
+                              {item.checked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                            <span className={`text-sm font-medium ${item.checked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>
+                              {item.label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center pl-8 sm:pl-0">
+                            {item.checked ? (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/40 dark:text-emerald-300 text-xs font-bold">
+                                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>Pukul {item.waktu ? `${item.waktu} WIB` : 'Selesai'}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Tidak diceklis</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Catatan jika ada */}
+                  {savedBuka?.catatan && (
+                    <div className="p-4 rounded-xl border bg-slate-50 border-slate-200 dark:bg-slate-950/40 dark:border-slate-800">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                        Catatan Tambahan Petugas
+                      </div>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 italic leading-relaxed whitespace-pre-line">
+                        &ldquo;{savedBuka.catatan}&rdquo;
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
+                  {isEditingBuka && (
+                    <div className="flex items-center justify-between p-3.5 rounded-xl border bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-300 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Edit3 className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span><strong>Mode Pengeditan:</strong> Anda sedang memperbarui data checklist pembukaan hari ini.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingBuka(false)}
+                        className="flex items-center gap-1 font-bold text-amber-800 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100 hover:underline cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Batal</span>
+                      </button>
+                    </div>
+                  )}
+
                   <div>
-                    <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-4">Item Checklist Pembukaan Harian</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+                      <div>
+                        <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                          Item Checklist Pembukaan Harian
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Centang setiap tugas yang telah dilakukan. Waktu selesai otomatis tercatat dan dapat disesuaikan.
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-2.5">
                       {checklistBuka.map((item) => (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => toggleChecklistItem('buka', item.id)}
-                          className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                          className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border transition-all duration-200 ${
                             item.checked
                               ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 dark:bg-emerald-950/20 dark:border-emerald-800/40 dark:text-emerald-300'
                               : 'bg-slate-50/80 border-slate-200 text-slate-800 hover:bg-slate-100 hover:border-slate-300 dark:bg-slate-950/30 dark:border-slate-800 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white'
                           }`}
                         >
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                            item.checked 
-                              ? 'bg-emerald-600 border-emerald-600 text-white dark:bg-emerald-500 dark:border-emerald-400' 
-                              : 'border-slate-400 dark:border-slate-600'
-                          }`}>
-                            {item.checked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                          </div>
-                          <span className={`text-sm font-medium leading-relaxed ${item.checked ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>{item.label}</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleChecklistItem('buka', item.id)}
+                            className="flex items-center gap-3.5 flex-1 text-left cursor-pointer focus:outline-none"
+                          >
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                item.checked 
+                                  ? 'bg-emerald-600 border-emerald-600 text-white dark:bg-emerald-500 dark:border-emerald-400' 
+                                  : 'border-slate-400 dark:border-slate-600'
+                              }`}
+                            >
+                              {item.checked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                            <span
+                              className={`text-sm font-medium leading-relaxed ${
+                                item.checked ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </button>
+
+                          {item.checked && (
+                            <div
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white border-emerald-200 shadow-xs dark:bg-slate-900 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 self-end sm:self-center shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pukul</span>
+                              <input
+                                type="time"
+                                value={item.waktu || getCurrentTimeString()}
+                                onChange={(e) => handleTimeChange('buka', item.id, e.target.value)}
+                                className="text-xs font-bold bg-transparent outline-none text-emerald-950 dark:text-emerald-200 cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                                title="Sesuaikan waktu diceklis"
+                              />
+                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">WIB</span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
+
                   <div className="pt-2">
                     <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-400">
                       Catatan Tambahan (Opsional)
@@ -315,18 +528,32 @@ export default function OperasionalClient({
                       className="w-full rounded-xl px-4 py-3 text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950/50 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-600 dark:focus:bg-slate-900 dark:focus:border-indigo-500 resize-none"
                     />
                   </div>
+
                   <div className="flex items-center justify-between pt-2">
                     <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                       {checklistBuka.filter(i => i.checked).length}/{checklistBuka.length} item selesai
                     </p>
-                    <button
-                      onClick={() => handleSaveChecklist('buka')}
-                      disabled={isPending}
-                      className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-900 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-xs cursor-pointer"
-                    >
-                      {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      <span>Simpan Checklist Pembukaan</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {isEditingBuka && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingBuka(false)}
+                          disabled={isPending}
+                          className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 text-slate-700 font-semibold text-sm transition cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSaveChecklist('buka')}
+                        disabled={isPending}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-900 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-xs cursor-pointer"
+                      >
+                        {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        <span>{isEditingBuka ? 'Perbarui Checklist Pembukaan' : 'Simpan Checklist Pembukaan'}</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -335,46 +562,197 @@ export default function OperasionalClient({
 
           {/* CHECKLIST TUTUP */}
           {activeTab === 'tutup' && (
-            <div className="space-y-5">
-              {hadTutup ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                  <div className="p-4 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
-                    <CheckCircle2 className="w-10 h-10" />
+            <div className="space-y-6">
+              {hadTutup && !isEditingTutup ? (
+                <div className="space-y-6">
+                  {/* Status Banner */}
+                  <div className="rounded-2xl p-6 border transition-all bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50 border-emerald-200 shadow-xs dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-emerald-950/30 dark:border-emerald-800/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400 shrink-0">
+                          <CheckCircle2 className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-emerald-950 dark:text-emerald-100">
+                              Checklist Penutupan Selesai
+                            </h3>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-300">
+                              Hari Ini
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                            <span>Diisi oleh <strong className="text-slate-800 dark:text-slate-200">{savedTutup?.pengguna?.nama}</strong></span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{savedTutup?.tanggal ? new Date(savedTutup.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Hari ini'}</span>
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChecklistTutup(parsedTutupItems.length > 0 ? parsedTutupItems : CHECKLIST_TUTUP.map(i => ({ ...i, checked: false, waktu: null })));
+                          setCatatanTutup(savedTutup?.catatan || '');
+                          setIsEditingTutup(true);
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800 dark:bg-slate-900 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs shrink-0"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Ubah Checklist</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-lg font-bold text-emerald-700 dark:text-emerald-400">Checklist Penutupan Selesai</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      Diisi oleh <span className="font-semibold text-slate-800 dark:text-slate-200">{checklistHariIni.find(c => c.jenis === 'tutup')?.pengguna?.nama}</span> hari ini.
-                    </p>
+
+                  {/* List Item & Waktu Diceklis */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">
+                        Rincian Item Pengecekan &amp; Waktu Pelaksanaan
+                      </h4>
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/40 px-2.5 py-0.5 rounded-full">
+                        {parsedTutupItems.filter(i => i.checked).length} dari {parsedTutupItems.length} item selesai
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {parsedTutupItems.map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border transition-all ${
+                            item.checked
+                              ? 'bg-white border-slate-200 shadow-xs dark:bg-slate-950/40 dark:border-slate-800'
+                              : 'bg-slate-50/60 border-slate-200/60 opacity-60 dark:bg-slate-950/20 dark:border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 flex-1">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                              item.checked
+                                ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                                : 'border-2 border-slate-300 dark:border-slate-600'
+                            }`}>
+                              {item.checked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                            <span className={`text-sm font-medium ${item.checked ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>
+                              {item.label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center pl-8 sm:pl-0">
+                            {item.checked ? (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/40 dark:text-emerald-300 text-xs font-bold">
+                                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>Pukul {item.waktu ? `${item.waktu} WIB` : 'Selesai'}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Tidak diceklis</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* Catatan jika ada */}
+                  {savedTutup?.catatan && (
+                    <div className="p-4 rounded-xl border bg-slate-50 border-slate-200 dark:bg-slate-950/40 dark:border-slate-800">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                        Catatan Tambahan Petugas
+                      </div>
+                      <p className="text-sm text-slate-800 dark:text-slate-200 italic leading-relaxed whitespace-pre-line">
+                        &ldquo;{savedTutup.catatan}&rdquo;
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
+                  {isEditingTutup && (
+                    <div className="flex items-center justify-between p-3.5 rounded-xl border bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-300 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Edit3 className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span><strong>Mode Pengeditan:</strong> Anda sedang memperbarui data checklist penutupan hari ini.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingTutup(false)}
+                        className="flex items-center gap-1 font-bold text-amber-800 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100 hover:underline cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Batal</span>
+                      </button>
+                    </div>
+                  )}
+
                   <div>
-                    <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-4">Item Checklist Penutupan Harian</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+                      <div>
+                        <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                          Item Checklist Penutupan Harian
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Centang setiap tugas penutupan yang telah dilakukan. Waktu selesai otomatis tercatat dan dapat disesuaikan.
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="space-y-2.5">
                       {checklistTutup.map((item) => (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => toggleChecklistItem('tutup', item.id)}
-                          className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                          className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border transition-all duration-200 ${
                             item.checked
                               ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 dark:bg-emerald-950/20 dark:border-emerald-800/40 dark:text-emerald-300'
                               : 'bg-slate-50/80 border-slate-200 text-slate-800 hover:bg-slate-100 hover:border-slate-300 dark:bg-slate-950/30 dark:border-slate-800 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-white'
                           }`}
                         >
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                            item.checked 
-                              ? 'bg-emerald-600 border-emerald-600 text-white dark:bg-emerald-500 dark:border-emerald-400' 
-                              : 'border-slate-400 dark:border-slate-600'
-                          }`}>
-                            {item.checked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                          </div>
-                          <span className={`text-sm font-medium leading-relaxed ${item.checked ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>{item.label}</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleChecklistItem('tutup', item.id)}
+                            className="flex items-center gap-3.5 flex-1 text-left cursor-pointer focus:outline-none"
+                          >
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                item.checked 
+                                  ? 'bg-emerald-600 border-emerald-600 text-white dark:bg-emerald-500 dark:border-emerald-400' 
+                                  : 'border-slate-400 dark:border-slate-600'
+                              }`}
+                            >
+                              {item.checked && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                            </div>
+                            <span
+                              className={`text-sm font-medium leading-relaxed ${
+                                item.checked ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </button>
+
+                          {item.checked && (
+                            <div
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white border-emerald-200 shadow-xs dark:bg-slate-900 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 self-end sm:self-center shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pukul</span>
+                              <input
+                                type="time"
+                                value={item.waktu || getCurrentTimeString()}
+                                onChange={(e) => handleTimeChange('tutup', item.id, e.target.value)}
+                                className="text-xs font-bold bg-transparent outline-none text-emerald-950 dark:text-emerald-200 cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                                title="Sesuaikan waktu diceklis"
+                              />
+                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">WIB</span>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
+
                   <div className="pt-2">
                     <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-400">
                       Catatan Tambahan (Opsional)
@@ -387,18 +765,32 @@ export default function OperasionalClient({
                       className="w-full rounded-xl px-4 py-3 text-sm outline-none border transition bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-950/50 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-600 dark:focus:bg-slate-900 dark:focus:border-indigo-500 resize-none"
                     />
                   </div>
+
                   <div className="flex items-center justify-between pt-2">
                     <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                       {checklistTutup.filter(i => i.checked).length}/{checklistTutup.length} item selesai
                     </p>
-                    <button
-                      onClick={() => handleSaveChecklist('tutup')}
-                      disabled={isPending}
-                      className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-900 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-xs cursor-pointer"
-                    >
-                      {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      <span>Simpan Checklist Penutupan</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {isEditingTutup && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTutup(false)}
+                          disabled={isPending}
+                          className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 text-slate-700 font-semibold text-sm transition cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSaveChecklist('tutup')}
+                        disabled={isPending}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 dark:disabled:bg-indigo-900 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-xs cursor-pointer"
+                      >
+                        {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        <span>{isEditingTutup ? 'Perbarui Checklist Penutupan' : 'Simpan Checklist Penutupan'}</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
