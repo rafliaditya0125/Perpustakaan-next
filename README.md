@@ -1,5 +1,8 @@
 # 📚 E-Perpustakaan - Sistem Otomasi Operasional & Sirkulasi Perpustakaan
 
+> **Vibe Coding Alert:**
+> Aplikasi ini hanya untuk keperluan eksperimen dan memakai metode vibe coding
+
 Aplikasi manajemen perpustakaan modern berbasis web yang dibangun dengan **Next.js 14+**, **TypeScript**, **Prisma ORM**, dan **MySQL**. Aplikasi ini mengimplementasikan SOP operasional perpustakaan lengkap termasuk sirkulasi, stock opname, dan manajemen operasional harian.
 
 ![Next.js](https://img.shields.io/badge/Next.js-14+-black?style=flat&logo=next.js)
