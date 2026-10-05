@@ -264,25 +264,6 @@ Untuk panduan lengkap, lihat:
 
 ---
 
-## 🤝 Kontribusi
-
-Untuk melaporkan bug atau request fitur, lihat [Contributing Guide](docs/CONTRIBUTING.md).
-
----
-
-## 📄 Lisensi
-
-© 2026 E-Perpustakaan. Dibuat oleh Rafli Aditya.
-
----
-
-## 📞 Kontak & Support
-
-- **Email**: rafli@perpustakaan.my.id
-- **Dokumentasi**: Lihat folder `/docs` untuk spesifikasi dan panduan lengkap
-
----
-
 ## 🙏 Acknowledgments
 
 - Dokumentasi referensi: SOP Peminjaman & Operasional Perpustakaan
@@ -290,5 +271,3 @@ Untuk melaporkan bug atau request fitur, lihat [Contributing Guide](docs/CONTRIB
 - BRD: Business Requirements Document Perpustakaan Rafli
 
 ---
-
-**Happy Coding! 🚀📚**
